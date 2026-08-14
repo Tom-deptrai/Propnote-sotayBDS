@@ -7,11 +7,11 @@ class MapConfigurationService {
 
   Future<bool> isGoogleMapsConfigured() async {
     try {
-      return await _channel.invokeMethod<bool>('isGoogleMapsConfigured') ??
-          false;
-    } on MissingPluginException {
-      return false;
-    } on PlatformException {
+      final result = await _channel
+          .invokeMethod<bool>('isGoogleMapsConfigured')
+          .timeout(const Duration(seconds: 1), onTimeout: () => false);
+      return result ?? false;
+    } catch (_) {
       return false;
     }
   }

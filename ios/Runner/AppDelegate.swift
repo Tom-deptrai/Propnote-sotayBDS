@@ -16,21 +16,23 @@ import UIKit
     if googleMapsConfigured {
       GMSServices.provideAPIKey(apiKey)
     }
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    guard
-      let registrar = engineBridge.pluginRegistry.registrar(
-        forPlugin: "PropNoteConfigPlugin"
-      )
-    else {
-      return
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "PropNoteConfigPlugin"
+    ) {
+      setupConfigChannel(messenger: registrar.messenger())
     }
+  }
+
+  private func setupConfigChannel(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: "propnote/config",
-      binaryMessenger: registrar.messenger()
+      binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in
       if call.method == "isGoogleMapsConfigured" {
