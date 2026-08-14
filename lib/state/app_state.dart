@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/mock_data.dart';
 import '../models/area.dart';
+import '../models/marker_size.dart';
 import '../models/property.dart';
 import '../models/property_status.dart';
 
@@ -14,10 +15,21 @@ class AppState extends ChangeNotifier {
   final List<Property> _properties = List.of(mockProperties);
   final List<Property> _trash = [];
   final List<PropertyArea> _areas = List.of(mockAreas);
+  final List<String> _propertyTypes = List.of(mockPropertyTypes);
+  final List<String> _tagOptions = List.of(mockTagOptions);
+  MarkerSize _markerSize = MarkerSize.medium;
 
   List<Property> get properties => List.unmodifiable(_properties);
   List<Property> get trash => List.unmodifiable(_trash);
   List<PropertyArea> get areas => List.unmodifiable(_areas);
+  List<String> get propertyTypes => List.unmodifiable(_propertyTypes);
+  List<String> get tagOptions => List.unmodifiable(_tagOptions);
+  MarkerSize get markerSize => _markerSize;
+
+  void setMarkerSize(MarkerSize size) {
+    _markerSize = size;
+    notifyListeners();
+  }
 
   PropertyArea? areaById(String id) {
     for (final a in _areas) {
@@ -117,6 +129,69 @@ class AppState extends ChangeNotifier {
     if (newIndex > oldIndex) newIndex -= 1;
     final area = _areas.removeAt(oldIndex);
     _areas.insert(newIndex, area);
+    notifyListeners();
+  }
+
+  int propertyTypeUsageCount(String type) =>
+      _properties.where((p) => p.propertyType == type).length;
+
+  void addPropertyType(String name) {
+    if (_propertyTypes.contains(name)) return;
+    _propertyTypes.add(name);
+    notifyListeners();
+  }
+
+  void renamePropertyType(String oldName, String newName) {
+    final index = _propertyTypes.indexOf(oldName);
+    if (index == -1 || newName.isEmpty) return;
+    _propertyTypes[index] = newName;
+    for (var i = 0; i < _properties.length; i++) {
+      if (_properties[i].propertyType == oldName) {
+        _properties[i] = _properties[i].copyWith(propertyType: newName);
+      }
+    }
+    notifyListeners();
+  }
+
+  bool deletePropertyType(String name) {
+    if (propertyTypeUsageCount(name) > 0) return false;
+    _propertyTypes.remove(name);
+    notifyListeners();
+    return true;
+  }
+
+  int tagUsageCount(String tag) =>
+      _properties.where((p) => p.tags.contains(tag)).length;
+
+  void addTagOption(String name) {
+    if (_tagOptions.contains(name)) return;
+    _tagOptions.add(name);
+    notifyListeners();
+  }
+
+  void renameTagOption(String oldName, String newName) {
+    final index = _tagOptions.indexOf(oldName);
+    if (index == -1 || newName.isEmpty) return;
+    _tagOptions[index] = newName;
+    for (var i = 0; i < _properties.length; i++) {
+      if (_properties[i].tags.contains(oldName)) {
+        final updatedTags = _properties[i].tags
+            .map((t) => t == oldName ? newName : t)
+            .toList();
+        _properties[i] = _properties[i].copyWith(tags: updatedTags);
+      }
+    }
+    notifyListeners();
+  }
+
+  void deleteTagOption(String name) {
+    _tagOptions.remove(name);
+    for (var i = 0; i < _properties.length; i++) {
+      if (_properties[i].tags.contains(name)) {
+        final updatedTags = List.of(_properties[i].tags)..remove(name);
+        _properties[i] = _properties[i].copyWith(tags: updatedTags);
+      }
+    }
     notifyListeners();
   }
 }

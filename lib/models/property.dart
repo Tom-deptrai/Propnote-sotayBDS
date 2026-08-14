@@ -1,3 +1,4 @@
+import 'contact.dart';
 import 'property_status.dart';
 
 /// Một bất động sản trong sổ tay cá nhân.
@@ -24,6 +25,12 @@ class Property {
   /// Chỉ số màu placeholder ảnh (mô phỏng thư viện ảnh, không dùng network).
   final List<int> photoSeeds;
 
+  /// Tài liệu/hình bổ sung (sổ nhà, giấy tờ, sơ đồ...) — tách biệt với ảnh BĐS chính.
+  final List<int> documentSeeds;
+
+  /// Liên hệ gắn với bất động sản (chủ nhà, người môi giới khác...).
+  final List<Contact> contacts;
+
   const Property({
     required this.id,
     required this.title,
@@ -42,6 +49,8 @@ class Property {
     this.surveyDate,
     required this.createdAt,
     this.photoSeeds = const [0],
+    this.documentSeeds = const [],
+    this.contacts = const [],
   });
 
   Property copyWith({
@@ -57,6 +66,9 @@ class Property {
     List<String>? tags,
     String? notes,
     DateTime? surveyDate,
+    List<int>? photoSeeds,
+    List<int>? documentSeeds,
+    List<Contact>? contacts,
   }) {
     return Property(
       id: id,
@@ -75,7 +87,9 @@ class Property {
       notes: notes ?? this.notes,
       surveyDate: surveyDate ?? this.surveyDate,
       createdAt: createdAt,
-      photoSeeds: photoSeeds,
+      photoSeeds: photoSeeds ?? this.photoSeeds,
+      documentSeeds: documentSeeds ?? this.documentSeeds,
+      contacts: contacts ?? this.contacts,
     );
   }
 }

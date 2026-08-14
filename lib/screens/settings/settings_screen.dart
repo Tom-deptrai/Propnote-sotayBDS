@@ -22,9 +22,9 @@ class SettingsScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
           children: [
             Text('Cài đặt', style: Theme.of(context).textTheme.displayMedium),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             const _ProCard(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             SettingsSection(
               title: 'Dữ liệu',
               children: [
@@ -54,7 +54,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             SettingsSection(
               title: 'Quản lý',
               children: [
@@ -69,7 +69,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             SettingsSection(
               title: 'Ứng dụng',
               children: [
@@ -119,7 +119,7 @@ class _ProCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.navy,
         borderRadius: BorderRadius.circular(18),

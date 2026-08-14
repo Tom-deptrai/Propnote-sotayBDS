@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 /// Trạng thái của một bất động sản trong sổ tay.
-enum PropertyStatus { unsurveyed, selling, sold }
+enum PropertyStatus { selling, unsurveyed, sold }
 
 extension PropertyStatusX on PropertyStatus {
   String get label {

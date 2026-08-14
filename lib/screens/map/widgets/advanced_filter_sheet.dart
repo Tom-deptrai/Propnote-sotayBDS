@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../../../data/mock_data.dart';
+import '../../../models/marker_size.dart';
+import '../../../state/app_state.dart';
 import '../../../theme/app_colors.dart';
 
 Future<void> showAdvancedFilterSheet(BuildContext context) {
@@ -24,6 +26,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -31,7 +35,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
           left: 20,
           right: 20,
           top: 12,
-          bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -47,9 +51,47 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             Text('Bộ lọc nâng cao', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            Text(
+              'Kích thước điểm đánh dấu',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: MarkerSize.values.map((size) {
+                final selected = state.markerSize == size;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: size == MarkerSize.values.last ? 0 : 8,
+                    ),
+                    child: InkWell(
+                      onTap: () => state.setMarkerSize(size),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected ? AppColors.navy : AppColors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          size.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
             Text(
               'Khoảng giá (tỷ đồng)',
               style: Theme.of(context).textTheme.titleSmall,
@@ -67,13 +109,13 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
               ),
               onChanged: (v) => setState(() => _price = v),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text('Loại bất động sản', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: mockPropertyTypes.map((t) {
+              children: state.propertyTypes.map((t) {
                 final selected = _types.contains(t);
                 return FilterChip(
                   label: Text(t),
@@ -85,7 +127,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(

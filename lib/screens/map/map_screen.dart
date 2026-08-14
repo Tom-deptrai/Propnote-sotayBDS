@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
+import '../../models/marker_size.dart';
 import '../../models/property.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
@@ -121,6 +122,9 @@ class _MapScreenState extends State<MapScreen>
     final state = context.watch<AppState>();
     final visibleProperties =
         state.properties.where((p) => _matches(p, state)).toList();
+    final markerScale = state.markerSize.scale;
+    final clusterHalf = (34.0 * (0.7 + markerScale * 0.3)) / 2;
+    final propertyHalf = (36.0 * markerScale).clamp(36.0, 52.0) / 2;
 
     return Scaffold(
       backgroundColor: AppColors.mapLand,
@@ -154,10 +158,11 @@ class _MapScreenState extends State<MapScreen>
                           ),
                           for (final cluster in mockMapClusters)
                             Positioned(
-                              left: mapCanvasSize.width * cluster.x - 22,
-                              top: mapCanvasSize.height * cluster.y - 22,
+                              left: mapCanvasSize.width * cluster.x - clusterHalf,
+                              top: mapCanvasSize.height * cluster.y - clusterHalf,
                               child: MapClusterMarker(
                                 count: cluster.count,
+                                scale: markerScale,
                                 onTap: () => _centerOn(
                                   Offset(
                                     mapCanvasSize.width * cluster.x,
@@ -169,10 +174,11 @@ class _MapScreenState extends State<MapScreen>
                             ),
                           for (final p in visibleProperties)
                             Positioned(
-                              left: mapCanvasSize.width * p.mapX - 18,
-                              top: mapCanvasSize.height * p.mapY - 18,
+                              left: mapCanvasSize.width * p.mapX - propertyHalf,
+                              top: mapCanvasSize.height * p.mapY - propertyHalf,
                               child: PropertyMarker(
                                 status: p.status,
+                                scale: markerScale,
                                 onTap: () => showPropertyPreviewSheet(
                                   context,
                                   property: p,

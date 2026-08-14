@@ -1,4 +1,5 @@
 import '../models/area.dart';
+import '../models/contact.dart';
 import '../models/property.dart';
 import '../models/property_status.dart';
 
@@ -40,6 +41,11 @@ final List<Property> mockProperties = [
     mapX: 0.24,
     mapY: 0.20,
     photoSeeds: const [1, 3, 5],
+    documentSeeds: const [0, 1],
+    contacts: const [
+      Contact(id: 'c1', label: 'Chủ nhà', phone: '0901 234 567'),
+      Contact(id: 'c2', label: 'Người môi giới khác', phone: '0988 123 456'),
+    ],
   ),
   Property(
     id: 'p2',

@@ -9,10 +9,12 @@ import '../../utils/app_messenger.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/area_picker_sheet.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/document_photo.dart';
 import '../../widgets/mini_map_preview.dart';
 import '../../widgets/status_badge.dart';
 import '../add_property/add_property_screen.dart';
 import 'widgets/photo_gallery.dart';
+import 'widgets/share_options_sheet.dart';
 
 class PropertyDetailScreen extends StatelessWidget {
   final String propertyId;
@@ -146,7 +148,7 @@ class PropertyDetailScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 320,
+            expandedHeight: 300,
             pinned: true,
             backgroundColor: AppColors.navy,
             foregroundColor: Colors.white,
@@ -176,7 +178,7 @@ class PropertyDetailScreen extends StatelessWidget {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -196,17 +198,17 @@ class PropertyDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     property.title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(property.address, style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 18,
-                    runSpacing: 8,
+                    runSpacing: 6,
                     children: [
                       _MetaChip(icon: Icons.straighten_rounded, label: formatArea(property.landArea)),
                       _MetaChip(
@@ -215,11 +217,11 @@ class PropertyDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   const _SectionTitle('Thông tin'),
                   _InfoTable(property: property),
                   if (property.tags.isNotEmpty) ...[
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
                     const _SectionTitle('Tags'),
                     Wrap(
                       spacing: 8,
@@ -246,7 +248,7 @@ class PropertyDetailScreen extends StatelessWidget {
                           .toList(),
                     ),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   const _SectionTitle('Ghi chú'),
                   Text(
                     property.notes.isEmpty ? 'Chưa có ghi chú.' : property.notes,
@@ -257,25 +259,106 @@ class PropertyDetailScreen extends StatelessWidget {
                               : AppColors.textPrimary,
                         ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   const _SectionTitle('Vị trí'),
                   MiniMapPreview(
                     normalizedPosition: Offset(property.mapX, property.mapY),
-                    height: 160,
+                    height: 150,
                     pinColor: property.status.color,
                   ),
-                  const SizedBox(height: 14),
+                  if (property.documentSeeds.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    const _SectionTitle('Tài liệu / Hình bổ sung'),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: property.documentSeeds.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (context, i) => DocumentPhoto(
+                        seed: property.documentSeeds[i],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ],
+                  if (property.contacts.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    const _SectionTitle('Liên hệ'),
+                    for (final c in property.contacts)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceAlt,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline_rounded, size: 20, color: AppColors.textSecondary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    c.label,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                                  ),
+                                  Text(
+                                    c.phone,
+                                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => showAppSnackBar('Gọi ${c.phone} (demo)'),
+                              customBorder: const CircleBorder(),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.navy,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.call_rounded, size: 16, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
+                        child: OutlinedButton(
                           onPressed: () => showAppSnackBar('Mở chỉ đường (demo)'),
-                          icon: const Icon(Icons.directions_rounded, size: 20),
-                          label: const Text('Chỉ đường'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                          ),
+                          child: const Icon(Icons.directions_rounded, size: 20),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => showShareOptionsSheet(
+                            context,
+                            property: property,
+                            areaName: state.areaName(property.areaId),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                          ),
+                          child: const Icon(Icons.ios_share_rounded, size: 19),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
                         child: ElevatedButton.icon(
                           onPressed: () => Navigator.push(
                             context,
@@ -330,7 +413,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
         style: const TextStyle(
@@ -396,7 +479,7 @@ class _InfoTable extends StatelessWidget {
         children: [
           for (int i = 0; i < rows.length; i++) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
                   Icon(rows[i].$1, size: 18, color: AppColors.textSecondary),

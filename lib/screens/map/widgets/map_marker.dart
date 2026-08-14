@@ -7,23 +7,26 @@ class PropertyMarker extends StatelessWidget {
   final PropertyStatus status;
   final bool selected;
   final VoidCallback onTap;
+  final double scale;
 
   const PropertyMarker({
     super.key,
     required this.status,
     required this.onTap,
     this.selected = false,
+    this.scale = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
-    final size = selected ? 22.0 : 16.0;
+    final size = (selected ? 22.0 : 16.0) * scale;
+    final hitBox = (36.0 * scale).clamp(36.0, 52.0);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 36,
-        height: 36,
+        width: hitBox,
+        height: hitBox,
         child: Center(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
@@ -52,12 +55,20 @@ class PropertyMarker extends StatelessWidget {
 class MapClusterMarker extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
+  final double scale;
 
-  const MapClusterMarker({super.key, required this.count, required this.onTap});
+  const MapClusterMarker({
+    super.key,
+    required this.count,
+    required this.onTap,
+    this.scale = 1.0,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final size = 34.0 + (count > 20 ? 10 : count > 10 ? 5 : 0);
+    final size =
+        (34.0 + (count > 20 ? 10 : count > 10 ? 5 : 0)) *
+        (0.7 + scale * 0.3);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,

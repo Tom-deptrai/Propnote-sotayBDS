@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
+import '../../../widgets/mock_actions.dart';
 import '../../../widgets/property_photo.dart';
 
 /// Lưới ảnh lớn, trực quan cho form thêm nhanh. Không dùng camera/gallery
-/// thật — chạm "Thêm ảnh" sẽ mô phỏng thêm một ảnh placeholder mới.
+/// thật — chạm "Thêm ảnh" mở lựa chọn Chụp ảnh / Chọn từ thư viện (mock)
+/// rồi thêm một ảnh placeholder mới. Cho phép nhiều ảnh.
 class PhotoPickerGrid extends StatelessWidget {
   final List<int> photoSeeds;
   final ValueChanged<List<int>> onChanged;
@@ -15,9 +17,22 @@ class PhotoPickerGrid extends StatelessWidget {
     required this.onChanged,
   });
 
-  void _addPhoto() {
+  Future<void> _addPhoto(BuildContext context) async {
+    final source = await showImageSourceActionSheet(context);
+    if (source == null) return;
     final nextSeed = (photoSeeds.isEmpty ? 0 : photoSeeds.last + 1) % 8;
     onChanged([...photoSeeds, nextSeed]);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            source == 'camera'
+                ? 'Đã chụp ảnh (demo)'
+                : 'Đã chọn ảnh từ thư viện (demo)',
+          ),
+        ),
+      );
+    }
   }
 
   void _removePhoto(int index) {
@@ -35,7 +50,10 @@ class PhotoPickerGrid extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
           if (i == photoSeeds.length) {
-            return _AddTile(onTap: _addPhoto, isFirst: photoSeeds.isEmpty);
+            return _AddTile(
+              onTap: () => _addPhoto(context),
+              isFirst: photoSeeds.isEmpty,
+            );
           }
           return Stack(
             children: [

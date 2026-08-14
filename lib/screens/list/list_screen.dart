@@ -47,7 +47,10 @@ class _ListScreenState extends State<ListScreen> {
       final area = state.areaName(p.areaId).toLowerCase();
       final matchesText = p.title.toLowerCase().contains(q) ||
           p.address.toLowerCase().contains(q) ||
-          area.contains(q);
+          area.contains(q) ||
+          p.propertyType.toLowerCase().contains(q) ||
+          p.notes.toLowerCase().contains(q) ||
+          p.tags.any((t) => t.toLowerCase().contains(q));
       if (!matchesText) return false;
     }
     return true;
@@ -64,7 +67,7 @@ class _ListScreenState extends State<ListScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -116,7 +119,7 @@ class _ListScreenState extends State<ListScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             SizedBox(
               height: 36,
               child: ListView(
@@ -140,15 +143,15 @@ class _ListScreenState extends State<ListScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Divider(height: 1),
             Expanded(
               child: results.isEmpty
                   ? const _EmptyResults()
                   : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                       itemCount: results.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, i) {
                         final p = results[i];
                         return PropertyCard(
