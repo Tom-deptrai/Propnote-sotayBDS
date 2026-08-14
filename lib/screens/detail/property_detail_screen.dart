@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../data/services/app_runtime.dart';
 import '../../models/geo_point.dart';
 import '../../models/property.dart';
+import '../../models/property_document.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_colors.dart';
@@ -12,6 +14,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/area_picker_sheet.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/document_photo.dart';
+import '../../widgets/full_screen_image_viewer.dart';
 import '../../widgets/media_path_scope.dart';
 import '../../widgets/mini_map_preview.dart';
 import '../../widgets/status_badge.dart';
@@ -42,16 +45,67 @@ class PropertyDetailScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openDocument(BuildContext context, String relativePath) async {
+  void _openDocumentOrImage(
+    BuildContext context,
+    PropertyDocument document,
+    List<PropertyDocument> allDocuments,
+  ) {
+    final isImage =
+        document.mimeType?.startsWith('image/') == true ||
+        _isImageFile(document.relativePath);
+
+    if (isImage) {
+      final imageDocs = allDocuments
+          .where(
+            (d) =>
+                d.mimeType?.startsWith('image/') == true ||
+                _isImageFile(d.relativePath),
+          )
+          .toList();
+      final initialIndex = imageDocs.indexWhere((d) => d.id == document.id);
+
+      final filePaths = imageDocs
+          .map((d) => MediaPathScope.resolve(context, d.relativePath))
+          .toList();
+
+      FullScreenImageViewer.show(
+        context,
+        filePaths: filePaths,
+        initialIndex: initialIndex >= 0 ? initialIndex : 0,
+        title: document.originalName,
+      );
+      return;
+    }
+
+    _openNativeDocument(context, document.relativePath);
+  }
+
+  Future<void> _openNativeDocument(
+    BuildContext context,
+    String relativePath,
+  ) async {
     final runtime = context.read<AppRuntime?>();
     if (runtime == null) return;
     try {
       await runtime.platformActions.openFile(
         runtime.directories.resolve(relativePath),
       );
-    } catch (_) {
-      showAppSnackBar('Không thể mở tài liệu');
+    } catch (error) {
+      final message = error is StateError
+          ? error.message
+          : 'Không thể mở tài liệu';
+      showAppSnackBar(message);
     }
+  }
+
+  static bool _isImageFile(String path) {
+    final ext = p.extension(path).toLowerCase();
+    return ext == '.jpg' ||
+        ext == '.jpeg' ||
+        ext == '.png' ||
+        ext == '.webp' ||
+        ext == '.gif' ||
+        ext == '.heic';
   }
 
   Future<void> _changeStatus(BuildContext context, Property property) async {
@@ -216,10 +270,6 @@ class PropertyDetailScreen extends StatelessWidget {
             pinned: true,
             backgroundColor: AppColors.navy,
             foregroundColor: Colors.white,
-            title: Text(
-              property.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
             leading: Padding(
               padding: const EdgeInsets.all(8),
               child: _CircleIconButton(
@@ -367,12 +417,24 @@ class PropertyDetailScreen extends StatelessWidget {
                             ? null
                             : property.documents[i];
                         return InkWell(
-                          onTap: document == null
-                              ? null
-                              : () => _openDocument(
+                          onTap: document != null
+                              ? () => _openDocumentOrImage(
                                   context,
-                                  document.relativePath,
-                                ),
+                                  document,
+                                  property.documents,
+                                )
+                              : () {
+                                  FullScreenImageViewer.show(
+                                    context,
+                                    filePaths: const [],
+                                    seeds: property.documentSeeds,
+                                    initialIndex:
+                                        i %
+                                        (property.documentSeeds.isNotEmpty
+                                            ? property.documentSeeds.length
+                                            : 1),
+                                  );
+                                },
                           borderRadius: BorderRadius.circular(10),
                           child: DocumentPhotoView(
                             filePath: MediaPathScope.resolve(

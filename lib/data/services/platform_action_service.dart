@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -37,11 +39,24 @@ class PlatformActionService {
   }
 
   Future<void> openFile(String path) async {
+    final file = File(path);
+    if (!await file.exists()) {
+      throw StateError('Không tìm thấy tệp tài liệu');
+    }
     final result = await OpenFilex.open(path);
-    if (result.type != ResultType.done) {
-      throw StateError(
-        result.message.isEmpty ? 'Không thể mở tài liệu' : result.message,
-      );
+    switch (result.type) {
+      case ResultType.done:
+        return;
+      case ResultType.noAppToOpen:
+        throw StateError('Thiết bị không có ứng dụng phù hợp để mở tệp này');
+      case ResultType.fileNotFound:
+        throw StateError('Không tìm thấy tệp tài liệu');
+      case ResultType.permissionDenied:
+        throw StateError('Không có quyền truy cập tệp');
+      case ResultType.error:
+        throw StateError(
+          result.message.isNotEmpty ? result.message : 'Không thể mở tài liệu',
+        );
     }
   }
 }

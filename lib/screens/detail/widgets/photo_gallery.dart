@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/property_photo.dart';
+import '../../../widgets/full_screen_image_viewer.dart';
 import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/property_photo.dart';
 
 class PhotoGallery extends StatefulWidget {
   final List<PropertyPhoto> photos;
   final List<int> photoSeeds;
+  final void Function(int index)? onPhotoTap;
 
   const PhotoGallery({
     super.key,
     required this.photos,
     required this.photoSeeds,
+    this.onPhotoTap,
   });
 
   @override
@@ -28,12 +31,31 @@ class _PhotoGalleryState extends State<PhotoGallery> {
     super.dispose();
   }
 
+  void _handlePhotoTap(BuildContext context, int index) {
+    if (widget.onPhotoTap != null) {
+      widget.onPhotoTap!(index);
+      return;
+    }
+
+    final filePaths = widget.photos
+        .map((p) => MediaPathScope.resolve(context, p.relativePath))
+        .toList();
+
+    FullScreenImageViewer.show(
+      context,
+      filePaths: filePaths,
+      seeds: widget.photoSeeds,
+      initialIndex: index,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final seeds = widget.photoSeeds.isEmpty ? const [0] : widget.photoSeeds;
     final itemCount = widget.photos.isNotEmpty
         ? widget.photos.length
         : seeds.length;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -43,9 +65,13 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           onPageChanged: (i) => setState(() => _page = i),
           itemBuilder: (context, i) {
             final photo = widget.photos.isEmpty ? null : widget.photos[i];
-            return PropertyPhotoView(
-              filePath: MediaPathScope.resolve(context, photo?.relativePath),
-              seed: seeds[i % seeds.length],
+            return GestureDetector(
+              onTap: () => _handlePhotoTap(context, i),
+              behavior: HitTestBehavior.opaque,
+              child: PropertyPhotoView(
+                filePath: MediaPathScope.resolve(context, photo?.relativePath),
+                seed: seeds[i % seeds.length],
+              ),
             );
           },
         ),
