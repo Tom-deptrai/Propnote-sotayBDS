@@ -17,6 +17,7 @@ Future<void> showManageOptionsSheet(
   required void Function(AppState, String) onAdd,
   required void Function(AppState, String, String) onRename,
   required bool Function(AppState, String) onDelete,
+  required void Function(AppState, int, int) onReorder,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -29,6 +30,7 @@ Future<void> showManageOptionsSheet(
       onAdd: onAdd,
       onRename: onRename,
       onDelete: onDelete,
+      onReorder: onReorder,
     ),
   );
 }
@@ -41,6 +43,7 @@ class _ManageOptionsSheet extends StatelessWidget {
   final void Function(AppState, String) onAdd;
   final void Function(AppState, String, String) onRename;
   final bool Function(AppState, String) onDelete;
+  final void Function(AppState, int, int) onReorder;
 
   const _ManageOptionsSheet({
     required this.title,
@@ -50,6 +53,7 @@ class _ManageOptionsSheet extends StatelessWidget {
     required this.onAdd,
     required this.onRename,
     required this.onDelete,
+    required this.onReorder,
   });
 
   Future<void> _add(BuildContext context, AppState state) async {
@@ -98,7 +102,11 @@ class _ManageOptionsSheet extends StatelessWidget {
     }
   }
 
-  Future<void> _delete(BuildContext context, AppState state, String name) async {
+  Future<void> _delete(
+    BuildContext context,
+    AppState state,
+    String name,
+  ) async {
     final count = usageCountOf(state, name);
     final confirmed = await showConfirmDialog(
       context,
@@ -149,7 +157,14 @@ class _ManageOptionsSheet extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            if (options.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 6),
+                child: Text(
+                  'Kéo để sắp xếp thứ tự hiển thị',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             if (options.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
@@ -159,18 +174,39 @@ class _ManageOptionsSheet extends StatelessWidget {
                 ),
               )
             else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView.separated(
-                  shrinkWrap: true,
+              SizedBox(
+                height: (MediaQuery.sizeOf(context).height * 0.5).clamp(
+                  180.0,
+                  340.0,
+                ),
+                child: ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
                   itemCount: options.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  onReorderItem: (oldIndex, newIndex) =>
+                      onReorder(state, oldIndex, newIndex),
                   itemBuilder: (context, i) {
                     final name = options[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    return Container(
+                      key: ValueKey(name),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Row(
                         children: [
+                          ReorderableDragStartListener(
+                            index: i,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.drag_indicator_rounded,
+                                size: 20,
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ),
                           Expanded(
                             child: Text(
                               name,

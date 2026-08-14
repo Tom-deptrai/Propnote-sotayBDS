@@ -16,7 +16,11 @@ class StaticInfoScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(
           body,
-          style: const TextStyle(fontSize: 14.5, height: 1.6, color: AppColors.textPrimary),
+          style: const TextStyle(
+            fontSize: 14.5,
+            height: 1.6,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
     );

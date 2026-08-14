@@ -8,7 +8,5 @@ final GlobalKey<ScaffoldMessengerState> rootMessengerKey =
 
 void showAppSnackBar(String message) {
   rootMessengerKey.currentState?.hideCurrentSnackBar();
-  rootMessengerKey.currentState?.showSnackBar(
-    SnackBar(content: Text(message)),
-  );
+  rootMessengerKey.currentState?.showSnackBar(SnackBar(content: Text(message)));
 }

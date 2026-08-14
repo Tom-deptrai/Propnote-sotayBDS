@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/list_sort_option.dart';
 import '../../models/property.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_colors.dart';
@@ -30,8 +31,7 @@ class _ListScreenState extends State<ListScreen> {
 
   bool _matches(Property p, AppState state) {
     if (_selectedAreaId != 'all' && p.areaId != _selectedAreaId) return false;
-    if (_filters.statuses.isNotEmpty &&
-        !_filters.statuses.contains(p.status)) {
+    if (_filters.statuses.isNotEmpty && !_filters.statuses.contains(p.status)) {
       return false;
     }
     if (p.price > 0 &&
@@ -45,7 +45,8 @@ class _ListScreenState extends State<ListScreen> {
     if (_query.trim().isNotEmpty) {
       final q = _query.trim().toLowerCase();
       final area = state.areaName(p.areaId).toLowerCase();
-      final matchesText = p.title.toLowerCase().contains(q) ||
+      final matchesText =
+          p.title.toLowerCase().contains(q) ||
           p.address.toLowerCase().contains(q) ||
           area.contains(q) ||
           p.propertyType.toLowerCase().contains(q) ||
@@ -60,7 +61,7 @@ class _ListScreenState extends State<ListScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final results = state.properties.where((p) => _matches(p, state)).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      ..sort(_filters.sort.compare);
 
     return Scaffold(
       body: SafeArea(
@@ -99,10 +100,7 @@ class _ListScreenState extends State<ListScreen> {
                 elevated: false,
                 trailing: InkWell(
                   onTap: () async {
-                    final result = await showListFilterSheet(
-                      context,
-                      _filters,
-                    );
+                    final result = await showListFilterSheet(context, _filters);
                     if (result != null) setState(() => _filters = result);
                   },
                   customBorder: const CircleBorder(),

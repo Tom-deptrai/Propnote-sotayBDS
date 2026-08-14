@@ -6,7 +6,11 @@ class SettingsSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const SettingsSection({super.key, required this.title, required this.children});
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,23 +79,40 @@ class SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: iconColor ?? (destructive ? AppColors.statusSelling : AppColors.navy)),
+            Icon(
+              icon,
+              size: 20,
+              color:
+                  iconColor ??
+                  (destructive ? AppColors.statusSelling : AppColors.navy),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500, color: color),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
               ),
             ),
             if (trailingText != null)
               Text(
                 trailingText!,
-                style: const TextStyle(fontSize: 13.5, color: AppColors.textTertiary),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.textTertiary,
+                ),
               ),
             ?trailingWidget,
             if (onTap != null) ...[
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 20),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textTertiary,
+                size: 20,
+              ),
             ],
           ],
         ),

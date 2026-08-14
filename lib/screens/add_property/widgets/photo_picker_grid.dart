@@ -70,7 +70,10 @@ class PhotoPickerGrid extends StatelessWidget {
                   left: 8,
                   bottom: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(6),
@@ -97,7 +100,11 @@ class PhotoPickerGrid extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.55),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                   ),
                 ),
               ),
@@ -135,7 +142,11 @@ class _AddTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add_photo_alternate_rounded, color: AppColors.navy, size: 26),
+            const Icon(
+              Icons.add_photo_alternate_rounded,
+              color: AppColors.navy,
+              size: 26,
+            ),
             const SizedBox(height: 6),
             Text(
               isFirst ? 'Thêm ảnh' : 'Thêm',

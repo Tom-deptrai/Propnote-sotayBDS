@@ -31,12 +31,14 @@ class SettingsScreen extends StatelessWidget {
                 SettingsTile(
                   icon: Icons.cloud_upload_outlined,
                   label: 'Sao lưu dữ liệu',
-                  onTap: () => showAppSnackBar('Tính năng sẽ có trong bản đầy đủ'),
+                  onTap: () =>
+                      showAppSnackBar('Tính năng sẽ có trong bản đầy đủ'),
                 ),
                 SettingsTile(
                   icon: Icons.cloud_download_outlined,
                   label: 'Khôi phục dữ liệu',
-                  onTap: () => showAppSnackBar('Tính năng sẽ có trong bản đầy đủ'),
+                  onTap: () =>
+                      showAppSnackBar('Tính năng sẽ có trong bản đầy đủ'),
                 ),
                 const SettingsTile(
                   icon: Icons.pie_chart_outline_rounded,
@@ -46,7 +48,9 @@ class SettingsScreen extends StatelessWidget {
                 SettingsTile(
                   icon: Icons.delete_outline_rounded,
                   label: 'Thùng rác',
-                  trailingText: state.trash.isEmpty ? null : '${state.trash.length}',
+                  trailingText: state.trash.isEmpty
+                      ? null
+                      : '${state.trash.length}',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TrashScreen()),
@@ -64,7 +68,9 @@ class SettingsScreen extends StatelessWidget {
                   trailingText: '${state.areas.length}',
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AreaManagementScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const AreaManagementScreen(),
+                    ),
                   ),
                 ),
               ],
@@ -135,12 +141,20 @@ class _ProCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.workspace_premium_rounded, color: AppColors.gold, size: 20),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: AppColors.gold,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
                 'PropNote Pro',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -151,19 +165,30 @@ class _ProCard extends StatelessWidget {
             children: [
               const Text(
                 '199.000đ',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 22),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                ),
               ),
               const SizedBox(width: 4),
               Text(
                 '/ năm',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             'Không giới hạn số lượng bất động sản, sao lưu đám mây, và nhiều hơn nữa.',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5, height: 1.4),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 12.5,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 16),
           SizedBox(

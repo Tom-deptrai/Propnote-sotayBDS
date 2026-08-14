@@ -39,6 +39,14 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   final _frontageController = TextEditingController();
   final _notesController = TextEditingController();
 
+  // iOS's decimal pad has no built-in Done key, so these track focus to
+  // show a small "Xong" bar above the keyboard for the numeric fields.
+  final _priceFocus = FocusNode();
+  final _areaFocus = FocusNode();
+  final _frontageFocus = FocusNode();
+  bool get _numericFieldFocused =>
+      _priceFocus.hasFocus || _areaFocus.hasFocus || _frontageFocus.hasFocus;
+
   List<int> _photoSeeds = [0];
   List<int> _documentSeeds = [];
   List<Contact> _contacts = [];
@@ -56,6 +64,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   @override
   void initState() {
     super.initState();
+    for (final node in [_priceFocus, _areaFocus, _frontageFocus]) {
+      node.addListener(() => setState(() {}));
+    }
     final p = widget.existing;
     if (p != null) {
       _titleController.text = p.title;
@@ -92,6 +103,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     _areaController.dispose();
     _frontageController.dispose();
     _notesController.dispose();
+    _priceFocus.dispose();
+    _areaFocus.dispose();
+    _frontageFocus.dispose();
     super.dispose();
   }
 
@@ -197,13 +211,16 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       onAdd: (s, name) => s.addPropertyType(name),
       onRename: (s, oldName, newName) => s.renamePropertyType(oldName, newName),
       onDelete: (s, name) => s.deletePropertyType(name),
+      onReorder: (s, oldIndex, newIndex) =>
+          s.reorderPropertyTypes(oldIndex, newIndex),
     );
     if (!mounted) return;
     final state = context.read<AppState>();
     if (_propertyType != null && !state.propertyTypes.contains(_propertyType)) {
       setState(
-        () => _propertyType =
-            state.propertyTypes.isNotEmpty ? state.propertyTypes.first : null,
+        () => _propertyType = state.propertyTypes.isNotEmpty
+            ? state.propertyTypes.first
+            : null,
       );
     }
   }
@@ -221,6 +238,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         s.deleteTagOption(name);
         return true;
       },
+      onReorder: (s, oldIndex, newIndex) =>
+          s.reorderTagOptions(oldIndex, newIndex),
     );
     if (!mounted) return;
     final state = context.read<AppState>();
@@ -249,7 +268,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
                       color: AppColors.textSecondary,
                     ),
                     const SizedBox(width: 8),
-                    Text(m, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Text(
+                      m,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
                   ],
                 ),
               ),
@@ -294,7 +316,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     final state = context.read<AppState>();
     final areaId = _areaId ?? state.areas.first.id;
     final existing = widget.existing;
-    final propertyType = _propertyType ??
+    final propertyType =
+        _propertyType ??
         (state.propertyTypes.isNotEmpty ? state.propertyTypes.first : 'Khác');
     final property = Property(
       id: existing?.id ?? 'p_${DateTime.now().millisecondsSinceEpoch}',
@@ -330,231 +353,277 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     _areaId ??= state.areas.isNotEmpty ? state.areas.first.id : null;
-    _propertyType ??=
-        state.propertyTypes.isNotEmpty ? state.propertyTypes.first : null;
-    final areaName = _areaId == null ? 'Chọn khu vực' : state.areaName(_areaId!);
+    _propertyType ??= state.propertyTypes.isNotEmpty
+        ? state.propertyTypes.first
+        : null;
+    final areaName = _areaId == null
+        ? 'Chọn khu vực'
+        : state.areaName(_areaId!);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Chỉnh sửa bất động sản' : 'Thêm bất động sản'),
+        title: Text(
+          _isEditing ? 'Chỉnh sửa bất động sản' : 'Thêm bất động sản',
+        ),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-        children: [
-          const _SectionLabel('Ảnh'),
-          PhotoPickerGrid(
-            photoSeeds: _photoSeeds,
-            onChanged: (v) => setState(() => _photoSeeds = v),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Tên / địa chỉ ngắn'),
-          TextField(
-            controller: _titleController,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              hintText: 'VD: Nhà phố Trung Kính',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.mic_none_rounded, size: 21),
-                color: AppColors.textSecondary,
-                onPressed: _voiceInputTitle,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+          children: [
+            const _SectionLabel('Ảnh'),
+            PhotoPickerGrid(
+              photoSeeds: _photoSeeds,
+              onChanged: (v) => setState(() => _photoSeeds = v),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Tên / địa chỉ ngắn'),
+            TextField(
+              controller: _titleController,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'VD: Nhà phố Trung Kính',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.mic_none_rounded, size: 21),
+                  color: AppColors.textSecondary,
+                  onPressed: _voiceInputTitle,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Trạng thái'),
-          StatusSelector(
-            selected: _status,
-            onChanged: (v) => setState(() => _status = v),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Khu vực'),
-          _TapField(icon: Icons.folder_outlined, label: areaName, onTap: _pickArea),
-          const SizedBox(height: 18),
-          const _SectionLabel('Vị trí'),
-          MiniMapPreview(normalizedPosition: _location, onTap: _pickOnMap),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _useCurrentLocation,
-                  icon: const Icon(Icons.my_location_rounded, size: 18),
-                  label: const Text('Vị trí hiện tại'),
+            const SizedBox(height: 18),
+            const _SectionLabel('Trạng thái'),
+            StatusSelector(
+              selected: _status,
+              onChanged: (v) => setState(() => _status = v),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Khu vực'),
+            _TapField(
+              icon: Icons.folder_outlined,
+              label: areaName,
+              onTap: _pickArea,
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Vị trí'),
+            MiniMapPreview(normalizedPosition: _location, onTap: _pickOnMap),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _useCurrentLocation,
+                    icon: const Icon(Icons.my_location_rounded, size: 18),
+                    label: const Text('Vị trí hiện tại'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickOnMap,
-                  icon: const Icon(Icons.map_outlined, size: 18),
-                  label: const Text('Chọn trên bản đồ'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickOnMap,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: const Text('Chọn trên bản đồ'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Thông tin chính'),
+            Row(
+              children: [
+                Expanded(
+                  child: _LabeledField(
+                    label: 'Giá (triệu đồng)',
+                    child: TextField(
+                      controller: _priceController,
+                      focusNode: _priceFocus,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [VnThousandsInputFormatter()],
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(hintText: '12.500'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _LabeledField(
+                    label: 'Diện tích (m²)',
+                    child: TextField(
+                      controller: _areaController,
+                      focusNode: _areaFocus,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [VnThousandsInputFormatter()],
+                      decoration: const InputDecoration(hintText: '72'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_priceValue > 0) ...[
+              const SizedBox(height: 6),
+              Text(
+                '≈ ${formatPriceShort(_priceValue)}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.navy,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Thông tin chính'),
-          Row(
-            children: [
-              Expanded(
-                child: _LabeledField(
-                  label: 'Giá (triệu đồng)',
-                  child: TextField(
-                    controller: _priceController,
-                    keyboardType: const TextInputType.numberWithOptions(),
-                    inputFormatters: [VnThousandsInputFormatter()],
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(hintText: '12.500'),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const _SectionLabel('Loại bất động sản', bottom: 0),
+                _ManageLink(onTap: _manageTypes),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: state.propertyTypes.map((t) {
+                final selected = t == _propertyType;
+                return ChoiceChip(
+                  label: Text(t),
+                  selected: selected,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _propertyType = t),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _LabeledField(
+                    label: 'Mặt tiền (m)',
+                    child: TextField(
+                      controller: _frontageController,
+                      focusNode: _frontageFocus,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [VnThousandsInputFormatter()],
+                      decoration: const InputDecoration(hintText: '4,2'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _LabeledField(
+                    label: 'Số tầng',
+                    child: NumberStepper(
+                      value: _floors,
+                      onChanged: (v) => setState(() => _floors = v),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const _SectionLabel('Tags', bottom: 0),
+                _ManageLink(onTap: _manageTags),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: state.tagOptions.map((t) {
+                final selected = _tags.contains(t);
+                return FilterChip(
+                  label: Text(t),
+                  selected: selected,
+                  showCheckmark: false,
+                  onSelected: (v) =>
+                      setState(() => v ? _tags.add(t) : _tags.remove(t)),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Ghi chú'),
+            TextField(
+              controller: _notesController,
+              minLines: 3,
+              maxLines: 5,
+              decoration: InputDecoration(
+                hintText: 'Ghi chú nhanh về bất động sản này...',
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(bottom: 48),
+                  child: IconButton(
+                    icon: const Icon(Icons.mic_none_rounded, size: 21),
+                    color: AppColors.textSecondary,
+                    onPressed: _voiceInputNotes,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _LabeledField(
-                  label: 'Diện tích (m²)',
-                  child: TextField(
-                    controller: _areaController,
-                    keyboardType: const TextInputType.numberWithOptions(),
-                    inputFormatters: [VnThousandsInputFormatter()],
-                    decoration: const InputDecoration(hintText: '72'),
-                  ),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Ngày khảo sát'),
+            _TapField(
+              icon: Icons.event_outlined,
+              label: formatDate(_surveyDate ?? DateTime.now()),
+              onTap: _pickDate,
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Tài liệu / Hình bổ sung'),
+            DocumentPickerGrid(
+              documentSeeds: _documentSeeds,
+              onChanged: (v) => setState(() => _documentSeeds = v),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('Liên hệ'),
+            ContactsEditor(
+              contacts: _contacts,
+              onChanged: (v) => setState(() => _contacts = v),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_numericFieldFocused)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceAlt,
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => FocusScope.of(context).unfocus(),
+                      child: const Text('Xong'),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          if (_priceValue > 0) ...[
-            const SizedBox(height: 6),
-            Text(
-              '≈ ${formatPriceShort(_priceValue)}',
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.navy,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: ElevatedButton(
+                onPressed: _validateAndSave,
+                child: Text(_isEditing ? 'Lưu thay đổi' : 'Lưu bất động sản'),
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const _SectionLabel('Loại bất động sản', bottom: 0),
-              _ManageLink(onTap: _manageTypes),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: state.propertyTypes.map((t) {
-              final selected = t == _propertyType;
-              return ChoiceChip(
-                label: Text(t),
-                selected: selected,
-                showCheckmark: false,
-                onSelected: (_) => setState(() => _propertyType = t),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _LabeledField(
-                  label: 'Mặt tiền (m)',
-                  child: TextField(
-                    controller: _frontageController,
-                    keyboardType: const TextInputType.numberWithOptions(),
-                    inputFormatters: [VnThousandsInputFormatter()],
-                    decoration: const InputDecoration(hintText: '4,2'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _LabeledField(
-                  label: 'Số tầng',
-                  child: NumberStepper(
-                    value: _floors,
-                    onChanged: (v) => setState(() => _floors = v),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const _SectionLabel('Tags', bottom: 0),
-              _ManageLink(onTap: _manageTags),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: state.tagOptions.map((t) {
-              final selected = _tags.contains(t);
-              return FilterChip(
-                label: Text(t),
-                selected: selected,
-                showCheckmark: false,
-                onSelected: (v) =>
-                    setState(() => v ? _tags.add(t) : _tags.remove(t)),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Ghi chú'),
-          TextField(
-            controller: _notesController,
-            minLines: 3,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: 'Ghi chú nhanh về bất động sản này...',
-              suffixIcon: Padding(
-                padding: const EdgeInsets.only(bottom: 48),
-                child: IconButton(
-                  icon: const Icon(Icons.mic_none_rounded, size: 21),
-                  color: AppColors.textSecondary,
-                  onPressed: _voiceInputNotes,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Ngày khảo sát'),
-          _TapField(
-            icon: Icons.event_outlined,
-            label: formatDate(_surveyDate ?? DateTime.now()),
-            onTap: _pickDate,
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Tài liệu / Hình bổ sung'),
-          DocumentPickerGrid(
-            documentSeeds: _documentSeeds,
-            onChanged: (v) => setState(() => _documentSeeds = v),
-          ),
-          const SizedBox(height: 18),
-          const _SectionLabel('Liên hệ'),
-          ContactsEditor(
-            contacts: _contacts,
-            onChanged: (v) => setState(() => _contacts = v),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-          child: ElevatedButton(
-            onPressed: _validateAndSave,
-            child: Text(_isEditing ? 'Lưu thay đổi' : 'Lưu bất động sản'),
-          ),
         ),
       ),
     );
@@ -646,7 +715,11 @@ class _TapField extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _TapField({required this.icon, required this.label, required this.onTap});
+  const _TapField({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -673,7 +746,10 @@ class _TapField extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textTertiary,
+            ),
           ],
         ),
       ),

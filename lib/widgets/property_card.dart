@@ -84,33 +84,52 @@ class PropertyCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (property.tags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: property.tags.take(2).map((t) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (property.tags.isNotEmpty)
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 5,
+                            children: property.tags.take(2).map((t) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  t,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceAlt,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            t,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                        )
+                      else
+                        const Spacer(),
+                      if (property.tags.isNotEmpty) const SizedBox(width: 6),
+                      Text(
+                        property.surveyDate != null
+                            ? 'Khảo sát: ${formatDate(property.surveyDate!)}'
+                            : 'Chưa khảo sát',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

@@ -21,7 +21,10 @@ class AreaManagementScreen extends StatelessWidget {
           decoration: const InputDecoration(hintText: 'VD: Long Biên'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Huỷ'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Thêm'),
@@ -35,7 +38,11 @@ class AreaManagementScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _renameArea(BuildContext context, String id, String currentName) async {
+  Future<void> _renameArea(
+    BuildContext context,
+    String id,
+    String currentName,
+  ) async {
     final controller = TextEditingController(text: currentName);
     final name = await showDialog<String>(
       context: context,
@@ -43,7 +50,10 @@ class AreaManagementScreen extends StatelessWidget {
         title: const Text('Đổi tên khu vực'),
         content: TextField(controller: controller, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Huỷ')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Huỷ'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Lưu'),
@@ -56,7 +66,12 @@ class AreaManagementScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _deleteArea(BuildContext context, String id, String name, int count) async {
+  Future<void> _deleteArea(
+    BuildContext context,
+    String id,
+    String name,
+    int count,
+  ) async {
     if (count > 0) {
       showAppSnackBar('Không thể xoá "$name" vì còn $count bất động sản');
       return;
@@ -91,7 +106,7 @@ class AreaManagementScreen extends StatelessWidget {
           : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               itemCount: areas.length,
-              onReorder: (oldIndex, newIndex) {
+              onReorderItem: (oldIndex, newIndex) {
                 context.read<AppState>().reorderAreas(oldIndex, newIndex);
               },
               itemBuilder: (context, i) {
@@ -100,7 +115,10 @@ class AreaManagementScreen extends StatelessWidget {
                 return Container(
                   key: ValueKey(area.id),
                   margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(14),
@@ -108,7 +126,10 @@ class AreaManagementScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.drag_indicator_rounded, color: AppColors.textTertiary),
+                      const Icon(
+                        Icons.drag_indicator_rounded,
+                        color: AppColors.textTertiary,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -116,23 +137,39 @@ class AreaManagementScreen extends StatelessWidget {
                           children: [
                             Text(
                               area.name,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '$count bất động sản',
-                              style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.textSecondary),
-                        onPressed: () => _renameArea(context, area.id, area.name),
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () =>
+                            _renameArea(context, area.id, area.name),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.statusSelling),
-                        onPressed: () => _deleteArea(context, area.id, area.name, count),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 20,
+                          color: AppColors.statusSelling,
+                        ),
+                        onPressed: () =>
+                            _deleteArea(context, area.id, area.name, count),
                       ),
                     ],
                   ),

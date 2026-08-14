@@ -30,7 +30,9 @@ class ContactsEditor extends StatelessWidget {
               controller: labelController,
               autofocus: true,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'Tên / nhãn (VD: Chủ nhà)'),
+              decoration: const InputDecoration(
+                hintText: 'Tên / nhãn (VD: Chủ nhà)',
+              ),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -56,7 +58,9 @@ class ContactsEditor extends StatelessWidget {
               Navigator.pop(
                 context,
                 Contact(
-                  id: existing?.id ?? 'contact_${DateTime.now().millisecondsSinceEpoch}',
+                  id:
+                      existing?.id ??
+                      'contact_${DateTime.now().millisecondsSinceEpoch}',
                   label: label,
                   phone: phone,
                 ),
@@ -104,7 +108,11 @@ class ContactsEditor extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.person_outline_rounded, size: 20, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -112,21 +120,35 @@ class ContactsEditor extends StatelessWidget {
                     children: [
                       Text(
                         contact.label,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.5,
+                        ),
                       ),
                       Text(
                         contact.phone,
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => _editContact(context, existing: contact),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.statusSelling),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 18,
+                    color: AppColors.statusSelling,
+                  ),
                   onPressed: () => _deleteContact(context, contact),
                 ),
               ],

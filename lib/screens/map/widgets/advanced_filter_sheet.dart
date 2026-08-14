@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/marker_size.dart';
 import '../../../state/app_state.dart';
 import '../../../theme/app_colors.dart';
 
@@ -52,46 +51,60 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Bộ lọc nâng cao', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
             Text(
-              'Kích thước điểm đánh dấu',
-              style: Theme.of(context).textTheme.titleSmall,
+              'Bộ lọc nâng cao',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Row(
-              children: MarkerSize.values.map((size) {
-                final selected = state.markerSize == size;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: size == MarkerSize.values.last ? 0 : 8,
-                    ),
-                    child: InkWell(
-                      onTap: () => state.setMarkerSize(size),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.navy : AppColors.surfaceAlt,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          size.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : AppColors.textSecondary,
-                          ),
-                        ),
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Kích thước điểm đánh dấu',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                InkWell(
+                  onTap: state.resetMarkerScale,
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Text(
+                      'Đặt lại',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.navy,
                       ),
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on,
+                  size: 14,
+                  color: AppColors.textTertiary,
+                ),
+                Expanded(
+                  child: Slider(
+                    value: state.markerScale,
+                    min: AppState.markerScaleMin,
+                    max: AppState.markerScaleMax,
+                    activeColor: AppColors.navy,
+                    inactiveColor: AppColors.border,
+                    onChanged: state.setMarkerScale,
+                  ),
+                ),
+                const Icon(
+                  Icons.location_on,
+                  size: 26,
+                  color: AppColors.textTertiary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Text(
               'Khoảng giá (tỷ đồng)',
               style: Theme.of(context).textTheme.titleSmall,
@@ -110,7 +123,10 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
               onChanged: (v) => setState(() => _price = v),
             ),
             const SizedBox(height: 4),
-            Text('Loại bất động sản', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Loại bất động sản',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -137,6 +153,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         _price = const RangeValues(0, 50);
                         _types.clear();
                       });
+                      state.resetMarkerScale();
                     },
                     child: const Text('Đặt lại'),
                   ),
@@ -147,7 +164,9 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                     onPressed: () {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã áp dụng bộ lọc (demo)')),
+                        const SnackBar(
+                          content: Text('Đã áp dụng bộ lọc (demo)'),
+                        ),
                       );
                     },
                     child: const Text('Áp dụng'),

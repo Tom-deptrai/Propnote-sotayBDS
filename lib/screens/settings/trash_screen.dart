@@ -27,7 +27,8 @@ class TrashScreen extends StatelessWidget {
                 final confirmed = await showConfirmDialog(
                   context,
                   title: 'Xoá vĩnh viễn tất cả?',
-                  message: 'Toàn bộ ${trash.length} bất động sản trong thùng rác sẽ bị xoá vĩnh viễn.',
+                  message:
+                      'Toàn bộ ${trash.length} bất động sản trong thùng rác sẽ bị xoá vĩnh viễn.',
                   confirmLabel: 'Xoá tất cả',
                 );
                 if (confirmed && context.mounted) {
@@ -77,12 +78,18 @@ class TrashScreen extends StatelessWidget {
                                   p.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14.5,
+                                  ),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
                                   '${formatPriceShort(p.price)} · ${formatArea(p.landArea)}',
-                                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                               ],
                             ),
@@ -108,20 +115,28 @@ class TrashScreen extends StatelessWidget {
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.statusSelling,
-                                side: const BorderSide(color: AppColors.statusSellingBg),
+                                side: const BorderSide(
+                                  color: AppColors.statusSellingBg,
+                                ),
                               ),
                               onPressed: () async {
                                 final confirmed = await showConfirmDialog(
                                   context,
                                   title: 'Xoá vĩnh viễn?',
-                                  message: '"${p.title}" sẽ bị xoá vĩnh viễn và không thể khôi phục.',
+                                  message:
+                                      '"${p.title}" sẽ bị xoá vĩnh viễn và không thể khôi phục.',
                                 );
                                 if (confirmed && context.mounted) {
-                                  context.read<AppState>().deletePermanently(p.id);
+                                  context.read<AppState>().deletePermanently(
+                                    p.id,
+                                  );
                                   showAppSnackBar('Đã xoá vĩnh viễn');
                                 }
                               },
-                              icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                              icon: const Icon(
+                                Icons.delete_forever_outlined,
+                                size: 18,
+                              ),
                               label: const Text('Xoá vĩnh viễn'),
                             ),
                           ),
@@ -150,11 +165,21 @@ class _EmptyTrash extends StatelessWidget {
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(color: AppColors.surfaceAlt, shape: BoxShape.circle),
-              child: const Icon(Icons.delete_outline_rounded, color: AppColors.textTertiary, size: 32),
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceAlt,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.textTertiary,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 16),
-            Text('Thùng rác trống', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Thùng rác trống',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             Text(
               'Bất động sản đã xoá sẽ xuất hiện ở đây.',

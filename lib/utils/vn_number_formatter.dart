@@ -4,6 +4,12 @@ import 'package:flutter/services.dart';
 /// cho phần thập phân — chỉ định dạng lại phần người dùng đã gõ, không tự
 /// thêm phần thập phân khi không cần (`12500` → `12.500`, không phải
 /// `12.500,0`).
+///
+/// Bàn phím decimal trên iOS chèn "." hay "," tuỳ locale/ngôn ngữ bàn phím
+/// (không phải theo region của thiết bị), nên formatter chấp nhận cả hai
+/// ký tự này khi người dùng vừa gõ — ký tự vừa gõ luôn được chuẩn hoá thành
+/// "," (dấu thập phân kiểu VN); mọi "." còn lại trong chuỗi được coi là dấu
+/// phân cách hàng nghìn do chính formatter này tự chèn ở lượt gõ trước.
 class VnThousandsInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -13,13 +19,51 @@ class VnThousandsInputFormatter extends TextInputFormatter {
     if (newValue.text.isEmpty) return newValue;
     if (!RegExp(r'^[0-9.,]*$').hasMatch(newValue.text)) return oldValue;
 
-    final cursorIndex = newValue.selection.end.clamp(0, newValue.text.length);
-    final contentBeforeCursor = newValue.text
+    var text = newValue.text;
+    var cursorIndex = newValue.selection.end.clamp(0, text.length);
+
+    // Xác định phần vừa được chèn bằng prefix/suffix chung. Cách này xử lý cả
+    // gõ một ký tự lẫn paste/thay thế vùng đang chọn.
+    var editStart = 0;
+    while (editStart < oldValue.text.length &&
+        editStart < text.length &&
+        oldValue.text[editStart] == text[editStart]) {
+      editStart++;
+    }
+    var oldEnd = oldValue.text.length;
+    var newEnd = text.length;
+    while (oldEnd > editStart &&
+        newEnd > editStart &&
+        oldValue.text[oldEnd - 1] == text[newEnd - 1]) {
+      oldEnd--;
+      newEnd--;
+    }
+    final insertedText = text.substring(editStart, newEnd);
+
+    // Dấu "." vừa gõ từ decimal pad luôn là dấu thập phân. Với nội dung paste
+    // như "12500.5", một dấu chấm có 1–2 chữ số phía sau cũng là thập phân;
+    // "12.500" vẫn được hiểu là số đã phân nhóm hàng nghìn.
+    final dotCount = '.'.allMatches(text).length;
+    final lastDot = text.lastIndexOf('.');
+    final pastedDotDecimal =
+        insertedText.length > 1 &&
+        !text.contains(',') &&
+        dotCount == 1 &&
+        lastDot > 0 &&
+        text.length - lastDot - 1 >= 1 &&
+        text.length - lastDot - 1 <= 2;
+    if (insertedText == '.') {
+      text = text.replaceRange(editStart, editStart + 1, ',');
+    } else if (pastedDotDecimal) {
+      text = text.replaceRange(lastDot, lastDot + 1, ',');
+    }
+
+    final contentBeforeCursor = text
         .substring(0, cursorIndex)
         .replaceAll('.', '')
         .length;
 
-    final raw = newValue.text.replaceAll('.', '');
+    final raw = text.replaceAll('.', '');
     if (','.allMatches(raw).length > 1) return oldValue;
 
     final commaIndex = raw.indexOf(',');

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
-import '../../models/marker_size.dart';
 import '../../models/property.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
@@ -71,10 +70,12 @@ class _MapScreenState extends State<MapScreen>
       vsync: this,
       duration: const Duration(milliseconds: 450),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOn(
-          Offset(mapCanvasSize.width * 0.44, mapCanvasSize.height * 0.46),
-          scale: 0.62,
-        ));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _centerOn(
+        Offset(mapCanvasSize.width * 0.44, mapCanvasSize.height * 0.46),
+        scale: 0.62,
+      ),
+    );
   }
 
   @override
@@ -90,10 +91,22 @@ class _MapScreenState extends State<MapScreen>
     final tx = _viewportSize.width / 2 - canvasPoint.dx * scale;
     final ty = _viewportSize.height / 2 - canvasPoint.dy * scale;
     final target = Matrix4(
-      scale, 0, 0, 0,
-      0, scale, 0, 0,
-      0, 0, 1, 0,
-      tx, ty, 0, 1,
+      scale,
+      0,
+      0,
+      0,
+      0,
+      scale,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      tx,
+      ty,
+      0,
+      1,
     );
 
     final tween = Matrix4Tween(begin: _transformController.value, end: target);
@@ -120,11 +133,11 @@ class _MapScreenState extends State<MapScreen>
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final visibleProperties =
-        state.properties.where((p) => _matches(p, state)).toList();
-    final markerScale = state.markerSize.scale;
-    final clusterHalf = (34.0 * (0.7 + markerScale * 0.3)) / 2;
-    final propertyHalf = (36.0 * markerScale).clamp(36.0, 52.0) / 2;
+    final visibleProperties = state.properties
+        .where((p) => _matches(p, state))
+        .toList();
+    final markerScale = state.markerScale;
+    final propertyHalf = PropertyMarker.hitBoxFor(markerScale) / 2;
 
     return Scaffold(
       backgroundColor: AppColors.mapLand,
@@ -152,14 +165,28 @@ class _MapScreenState extends State<MapScreen>
                             ),
                           ),
                           Positioned(
-                            left: mapCanvasSize.width * _currentLocation.dx - 32,
-                            top: mapCanvasSize.height * _currentLocation.dy - 32,
+                            left:
+                                mapCanvasSize.width * _currentLocation.dx - 32,
+                            top:
+                                mapCanvasSize.height * _currentLocation.dy - 32,
                             child: const CurrentLocationMarker(),
                           ),
                           for (final cluster in mockMapClusters)
                             Positioned(
-                              left: mapCanvasSize.width * cluster.x - clusterHalf,
-                              top: mapCanvasSize.height * cluster.y - clusterHalf,
+                              left:
+                                  mapCanvasSize.width * cluster.x -
+                                  MapClusterMarker.sizeFor(
+                                        cluster.count,
+                                        markerScale,
+                                      ) /
+                                      2,
+                              top:
+                                  mapCanvasSize.height * cluster.y -
+                                  MapClusterMarker.sizeFor(
+                                        cluster.count,
+                                        markerScale,
+                                      ) /
+                                      2,
                               child: MapClusterMarker(
                                 count: cluster.count,
                                 scale: markerScale,

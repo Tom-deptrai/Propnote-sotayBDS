@@ -84,9 +84,7 @@ class _BottomNavBar extends StatelessWidget {
             children: List.generate(_items.length, (i) {
               final item = _items[i];
               final selected = i == currentIndex;
-              final color = selected
-                  ? AppColors.navy
-                  : AppColors.textTertiary;
+              final color = selected ? AppColors.navy : AppColors.textTertiary;
               return Expanded(
                 child: InkWell(
                   onTap: () => onTap(i),

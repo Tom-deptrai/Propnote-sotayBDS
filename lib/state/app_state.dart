@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../data/mock_data.dart';
 import '../models/area.dart';
-import '../models/marker_size.dart';
 import '../models/property.dart';
 import '../models/property_status.dart';
 
@@ -17,19 +16,30 @@ class AppState extends ChangeNotifier {
   final List<PropertyArea> _areas = List.of(mockAreas);
   final List<String> _propertyTypes = List.of(mockPropertyTypes);
   final List<String> _tagOptions = List.of(mockTagOptions);
-  MarkerSize _markerSize = MarkerSize.medium;
+
+  /// Hệ số phóng to/nhỏ marker trên bản đồ — lưu in-memory cho prototype.
+  /// Đặt riêng dưới dạng field double đơn giản như thế này để sau này có
+  /// thể thay bằng giá trị đọc/ghi từ local settings (VD: SharedPreferences)
+  /// mà không cần đổi API của AppState.
+  double _markerScale = markerScaleDefault;
+
+  static const double markerScaleMin = 0.6;
+  static const double markerScaleMax = 1.4;
+  static const double markerScaleDefault = 1.0;
 
   List<Property> get properties => List.unmodifiable(_properties);
   List<Property> get trash => List.unmodifiable(_trash);
   List<PropertyArea> get areas => List.unmodifiable(_areas);
   List<String> get propertyTypes => List.unmodifiable(_propertyTypes);
   List<String> get tagOptions => List.unmodifiable(_tagOptions);
-  MarkerSize get markerSize => _markerSize;
+  double get markerScale => _markerScale;
 
-  void setMarkerSize(MarkerSize size) {
-    _markerSize = size;
+  void setMarkerScale(double value) {
+    _markerScale = value.clamp(markerScaleMin, markerScaleMax);
     notifyListeners();
   }
+
+  void resetMarkerScale() => setMarkerScale(markerScaleDefault);
 
   PropertyArea? areaById(String id) {
     for (final a in _areas) {
@@ -126,7 +136,6 @@ class AppState extends ChangeNotifier {
   }
 
   void reorderAreas(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex -= 1;
     final area = _areas.removeAt(oldIndex);
     _areas.insert(newIndex, area);
     notifyListeners();
@@ -143,7 +152,11 @@ class AppState extends ChangeNotifier {
 
   void renamePropertyType(String oldName, String newName) {
     final index = _propertyTypes.indexOf(oldName);
-    if (index == -1 || newName.isEmpty) return;
+    if (index == -1 ||
+        newName.isEmpty ||
+        (newName != oldName && _propertyTypes.contains(newName))) {
+      return;
+    }
     _propertyTypes[index] = newName;
     for (var i = 0; i < _properties.length; i++) {
       if (_properties[i].propertyType == oldName) {
@@ -160,6 +173,12 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  void reorderPropertyTypes(int oldIndex, int newIndex) {
+    final type = _propertyTypes.removeAt(oldIndex);
+    _propertyTypes.insert(newIndex, type);
+    notifyListeners();
+  }
+
   int tagUsageCount(String tag) =>
       _properties.where((p) => p.tags.contains(tag)).length;
 
@@ -171,7 +190,11 @@ class AppState extends ChangeNotifier {
 
   void renameTagOption(String oldName, String newName) {
     final index = _tagOptions.indexOf(oldName);
-    if (index == -1 || newName.isEmpty) return;
+    if (index == -1 ||
+        newName.isEmpty ||
+        (newName != oldName && _tagOptions.contains(newName))) {
+      return;
+    }
     _tagOptions[index] = newName;
     for (var i = 0; i < _properties.length; i++) {
       if (_properties[i].tags.contains(oldName)) {
@@ -192,6 +215,12 @@ class AppState extends ChangeNotifier {
         _properties[i] = _properties[i].copyWith(tags: updatedTags);
       }
     }
+    notifyListeners();
+  }
+
+  void reorderTagOptions(int oldIndex, int newIndex) {
+    final tag = _tagOptions.removeAt(oldIndex);
+    _tagOptions.insert(newIndex, tag);
     notifyListeners();
   }
 }

@@ -35,7 +35,10 @@ class PropertyDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Đổi trạng thái', style: Theme.of(context).textTheme.titleLarge),
+                child: Text(
+                  'Đổi trạng thái',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
             ),
             for (final s in PropertyStatus.values)
@@ -43,9 +46,15 @@ class PropertyDetailScreen extends StatelessWidget {
                 leading: Container(
                   width: 12,
                   height: 12,
-                  decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: s.color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                title: Text(s.label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                title: Text(
+                  s.label,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
                 trailing: s == property.status
                     ? const Icon(Icons.check_rounded, color: AppColors.navy)
                     : null,
@@ -109,8 +118,14 @@ class PropertyDetailScreen extends StatelessWidget {
               onTap: () => Navigator.pop(context, 'area'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.statusSelling),
-              title: const Text('Xoá', style: TextStyle(color: AppColors.statusSelling)),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.statusSelling,
+              ),
+              title: const Text(
+                'Xoá',
+                style: TextStyle(color: AppColors.statusSelling),
+              ),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
             const SizedBox(height: 8),
@@ -204,13 +219,19 @@ class PropertyDetailScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
-                  Text(property.address, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    property.address,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 18,
                     runSpacing: 6,
                     children: [
-                      _MetaChip(icon: Icons.straighten_rounded, label: formatArea(property.landArea)),
+                      _MetaChip(
+                        icon: Icons.straighten_rounded,
+                        label: formatArea(property.landArea),
+                      ),
                       _MetaChip(
                         icon: Icons.location_on_outlined,
                         label: state.areaName(property.areaId),
@@ -227,37 +248,41 @@ class PropertyDetailScreen extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: property.tags
-                          .map((t) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 7,
+                          .map(
+                            (t) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceAlt,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                t,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceAlt,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  t,
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   ],
                   const SizedBox(height: 18),
                   const _SectionTitle('Ghi chú'),
                   Text(
-                    property.notes.isEmpty ? 'Chưa có ghi chú.' : property.notes,
+                    property.notes.isEmpty
+                        ? 'Chưa có ghi chú.'
+                        : property.notes,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: 14.5,
-                          color: property.notes.isEmpty
-                              ? AppColors.textTertiary
-                              : AppColors.textPrimary,
-                        ),
+                      fontSize: 14.5,
+                      color: property.notes.isEmpty
+                          ? AppColors.textTertiary
+                          : AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const _SectionTitle('Vị trí'),
@@ -273,11 +298,12 @@ class PropertyDetailScreen extends StatelessWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: property.documentSeeds.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
                       itemBuilder: (context, i) => DocumentPhoto(
                         seed: property.documentSeeds[i],
                         borderRadius: BorderRadius.circular(10),
@@ -290,14 +316,21 @@ class PropertyDetailScreen extends StatelessWidget {
                     for (final c in property.contacts)
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceAlt,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.person_outline_rounded, size: 20, color: AppColors.textSecondary),
+                            const Icon(
+                              Icons.person_outline_rounded,
+                              size: 20,
+                              color: AppColors.textSecondary,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
@@ -305,17 +338,24 @@ class PropertyDetailScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     c.label,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5,
+                                    ),
                                   ),
                                   Text(
                                     c.phone,
-                                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             InkWell(
-                              onTap: () => showAppSnackBar('Gọi ${c.phone} (demo)'),
+                              onTap: () =>
+                                  showAppSnackBar('Gọi ${c.phone} (demo)'),
                               customBorder: const CircleBorder(),
                               child: Container(
                                 padding: const EdgeInsets.all(8),
@@ -323,7 +363,11 @@ class PropertyDetailScreen extends StatelessWidget {
                                   color: AppColors.navy,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.call_rounded, size: 16, color: Colors.white),
+                                child: const Icon(
+                                  Icons.call_rounded,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ],
@@ -335,9 +379,13 @@ class PropertyDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => showAppSnackBar('Mở chỉ đường (demo)'),
+                          onPressed: () =>
+                              showAppSnackBar('Mở chỉ đường (demo)'),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 14,
+                            ),
                           ),
                           child: const Icon(Icons.directions_rounded, size: 20),
                         ),
@@ -351,7 +399,10 @@ class PropertyDetailScreen extends StatelessWidget {
                             areaName: state.areaName(property.areaId),
                           ),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 14,
+                            ),
                           ),
                           child: const Icon(Icons.ios_share_rounded, size: 19),
                         ),
@@ -363,7 +414,8 @@ class PropertyDetailScreen extends StatelessWidget {
                           onPressed: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => AddPropertyScreen(existing: property),
+                              builder: (_) =>
+                                  AddPropertyScreen(existing: property),
                             ),
                           ),
                           icon: const Icon(Icons.edit_outlined, size: 18),
@@ -466,7 +518,11 @@ class _InfoTable extends StatelessWidget {
       if (property.floors != null)
         (Icons.layers_outlined, 'Số tầng', '${property.floors} tầng'),
       if (property.surveyDate != null)
-        (Icons.event_outlined, 'Ngày khảo sát', formatDate(property.surveyDate!)),
+        (
+          Icons.event_outlined,
+          'Ngày khảo sát',
+          formatDate(property.surveyDate!),
+        ),
     ];
 
     return Container(

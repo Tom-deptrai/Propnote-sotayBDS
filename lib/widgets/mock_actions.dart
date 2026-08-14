@@ -133,7 +133,11 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
                     color: AppColors.navy,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.mic_rounded, color: Colors.white, size: 26),
+                  child: const Icon(
+                    Icons.mic_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -148,7 +152,10 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
               const SizedBox(height: 4),
               const Text(
                 'Nói nội dung bạn muốn nhập (demo)',
-                style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),

@@ -60,7 +60,11 @@ class MiniMapPreview extends StatelessWidget {
                     ),
                   ),
                   Center(
-                    child: Icon(Icons.location_on_rounded, color: pinColor, size: 34),
+                    child: Icon(
+                      Icons.location_on_rounded,
+                      color: pinColor,
+                      size: 34,
+                    ),
                   ),
                   if (onTap != null)
                     Positioned(
@@ -78,7 +82,11 @@ class MiniMapPreview extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.open_in_full_rounded, size: 13, color: AppColors.navy),
+                            Icon(
+                              Icons.open_in_full_rounded,
+                              size: 13,
+                              color: AppColors.navy,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Xem bản đồ',

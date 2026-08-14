@@ -39,10 +39,22 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       final tx = _viewportSize.width / 2 - mapCanvasSize.width * p.dx * scale;
       final ty = _viewportSize.height / 2 - mapCanvasSize.height * p.dy * scale;
       _controller.value = Matrix4(
-        scale, 0, 0, 0,
-        0, scale, 0, 0,
-        0, 0, 1, 0,
-        tx, ty, 0, 1,
+        scale,
+        0,
+        0,
+        0,
+        0,
+        scale,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        tx,
+        ty,
+        0,
+        1,
       );
       setState(() {});
     });
@@ -90,9 +102,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     child: SizedBox(
                       width: mapCanvasSize.width,
                       height: mapCanvasSize.height,
-                      child: const CustomPaint(
-                        painter: MapBackgroundPainter(),
-                      ),
+                      child: const CustomPaint(painter: MapBackgroundPainter()),
                     ),
                   ),
                 );

@@ -47,7 +47,9 @@ class NumberStepper extends StatelessWidget {
           ),
           _StepButton(
             icon: Icons.add_rounded,
-            onTap: () => onChanged((value ?? min - 1) + 1 > max ? max : (value ?? (min - 1)) + 1),
+            onTap: () => onChanged(
+              (value ?? min - 1) + 1 > max ? max : (value ?? (min - 1)) + 1,
+            ),
           ),
         ],
       ),

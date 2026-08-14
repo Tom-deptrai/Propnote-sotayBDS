@@ -10,7 +10,12 @@ class _ShareItem {
   final bool defaultSelected;
   final bool sensitive;
 
-  const _ShareItem(this.key, this.label, this.defaultSelected, {this.sensitive = false});
+  const _ShareItem(
+    this.key,
+    this.label,
+    this.defaultSelected, {
+    this.sensitive = false,
+  });
 }
 
 const List<_ShareItem> _kShareItems = [
@@ -36,7 +41,8 @@ Future<void> showShareOptionsSheet(
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _ShareOptionsSheet(property: property, areaName: areaName),
+    builder: (context) =>
+        _ShareOptionsSheet(property: property, areaName: areaName),
   );
 }
 
@@ -81,7 +87,10 @@ class _ShareOptionsSheetState extends State<_ShareOptionsSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Chọn thông tin muốn chia sẻ', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Chọn thông tin muốn chia sẻ',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 4),
             const Text(
               'Thông tin nhạy cảm mặc định không được chọn.',
@@ -97,7 +106,8 @@ class _ShareOptionsSheetState extends State<_ShareOptionsSheet> {
                   final item = _kShareItems[i];
                   return CheckboxListTile(
                     value: _selected[item.key],
-                    onChanged: (v) => setState(() => _selected[item.key] = v ?? false),
+                    onChanged: (v) =>
+                        setState(() => _selected[item.key] = v ?? false),
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
                     dense: true,
@@ -106,11 +116,18 @@ class _ShareOptionsSheetState extends State<_ShareOptionsSheet> {
                       children: [
                         Text(
                           item.label,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         if (item.sensitive) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.shield_outlined, size: 14, color: AppColors.textTertiary),
+                          const Icon(
+                            Icons.shield_outlined,
+                            size: 14,
+                            color: AppColors.textTertiary,
+                          ),
                         ],
                       ],
                     ),
@@ -143,8 +160,12 @@ void _showPreview(
   if (selected['photos'] == true) {
     lines.add('📷 Kèm ${property.photoSeeds.length} ảnh BĐS');
   }
-  if (selected['price'] == true) lines.add('Giá: ${formatPriceShort(property.price)}');
-  if (selected['area'] == true) lines.add('Diện tích: ${formatArea(property.landArea)}');
+  if (selected['price'] == true) {
+    lines.add('Giá: ${formatPriceShort(property.price)}');
+  }
+  if (selected['area'] == true) {
+    lines.add('Diện tích: ${formatArea(property.landArea)}');
+  }
   if (selected['address'] == true) {
     lines.add('Địa chỉ: ${property.address} · $areaName');
   }
@@ -175,7 +196,9 @@ void _showPreview(
       title: Text('Xem trước — ${property.title}'),
       content: SingleChildScrollView(
         child: Text(
-          lines.isEmpty ? 'Chưa chọn nội dung nào để chia sẻ.' : lines.join('\n'),
+          lines.isEmpty
+              ? 'Chưa chọn nội dung nào để chia sẻ.'
+              : lines.join('\n'),
           style: const TextStyle(fontSize: 13.5, height: 1.6),
         ),
       ),
@@ -187,9 +210,9 @@ void _showPreview(
         ElevatedButton(
           onPressed: () {
             Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Đã chia sẻ (demo)')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Đã chia sẻ (demo)')));
           },
           child: const Text('Chia sẻ'),
         ),

@@ -110,7 +110,10 @@ class _AreaPickerSheetState extends State<_AreaPickerSheet> {
                       style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     trailing: selected
-                        ? const Icon(Icons.check_circle_rounded, color: AppColors.navy)
+                        ? const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.navy,
+                          )
                         : null,
                     onTap: () => Navigator.pop(context, area.id),
                   );
@@ -125,7 +128,10 @@ class _AreaPickerSheetState extends State<_AreaPickerSheet> {
                 padding: EdgeInsets.symmetric(vertical: 10),
                 child: Row(
                   children: [
-                    Icon(Icons.add_circle_outline_rounded, color: AppColors.navy),
+                    Icon(
+                      Icons.add_circle_outline_rounded,
+                      color: AppColors.navy,
+                    ),
                     SizedBox(width: 10),
                     Text(
                       'Thêm khu vực mới',

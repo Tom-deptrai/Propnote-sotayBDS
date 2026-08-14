@@ -71,8 +71,10 @@ class _PropertyPreviewSheet extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         property.title,
-                        style: Theme.of(context).textTheme.bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w600, fontSize: 14),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -90,7 +92,10 @@ class _PropertyPreviewSheet extends StatelessWidget {
               spacing: 18,
               runSpacing: 10,
               children: [
-                _MetaItem(icon: Icons.straighten_rounded, label: formatArea(property.landArea)),
+                _MetaItem(
+                  icon: Icons.straighten_rounded,
+                  label: formatArea(property.landArea),
+                ),
                 _MetaItem(icon: Icons.location_on_outlined, label: areaName),
                 if (property.surveyDate != null)
                   _MetaItem(

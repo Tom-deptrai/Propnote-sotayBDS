@@ -8,7 +8,9 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const PropNoteApp());
-    await tester.pumpAndSettle();
+    // The current-location marker intentionally repeats forever, so waiting
+    // for all animations to settle would always time out.
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Bản đồ'), findsOneWidget);
     expect(find.text('Danh sách'), findsOneWidget);

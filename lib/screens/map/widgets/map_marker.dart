@@ -17,10 +17,14 @@ class PropertyMarker extends StatelessWidget {
     this.scale = 1.0,
   });
 
+  /// Kích thước vùng chạm cho một marker BĐS ở [scale] cho trước — dùng cả
+  /// khi vẽ marker lẫn khi tính offset căn giữa trên canvas bản đồ.
+  static double hitBoxFor(double scale) => (40.0 * scale).clamp(30.0, 60.0);
+
   @override
   Widget build(BuildContext context) {
-    final size = (selected ? 22.0 : 16.0) * scale;
-    final hitBox = (36.0 * scale).clamp(36.0, 52.0);
+    final size = (selected ? 26.0 : 20.0) * scale;
+    final hitBox = hitBoxFor(scale);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -64,11 +68,22 @@ class MapClusterMarker extends StatelessWidget {
     this.scale = 1.0,
   });
 
+  /// Cluster scale "dịu" hơn marker thường — tăng/giảm có cảm nhận được
+  /// nhưng không lấn át bố cục bản đồ ở các mức scale lớn.
+  static double sizeFor(int count, double scale) {
+    final base =
+        34.0 +
+        (count > 20
+            ? 10
+            : count > 10
+            ? 5
+            : 0);
+    return base * (0.5 + scale * 0.5);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final size =
-        (34.0 + (count > 20 ? 10 : count > 10 ? 5 : 0)) *
-        (0.7 + scale * 0.3);
+    final size = sizeFor(count, scale);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
