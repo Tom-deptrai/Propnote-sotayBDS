@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/property.dart';
 import '../../../theme/app_colors.dart';
 import '../../../utils/formatters.dart';
+import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/property_photo.dart';
 import '../../../widgets/status_badge.dart';
 import '../../detail/property_detail_screen.dart';
@@ -53,8 +54,13 @@ class _PropertyPreviewSheet extends StatelessWidget {
                 SizedBox(
                   width: 76,
                   height: 76,
-                  child: PropertyPhoto(
-                    seed: property.photoSeeds.first,
+                  child: PropertyPhotoView(
+                    filePath: MediaPathScope.resolve(
+                      context,
+                      property.photos.firstOrNull?.thumbnailRelativePath ??
+                          property.photos.firstOrNull?.relativePath,
+                    ),
+                    seed: property.photoSeeds.firstOrNull ?? 0,
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),

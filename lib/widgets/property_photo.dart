@@ -1,14 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-/// Placeholder ảnh BĐS — không phụ thuộc mạng/API ảnh.
-///
-/// Mỗi "seed" ánh xạ tới một cặp gradient trung tính kiểu biên tập + icon
-/// kiến trúc mờ, tạo cảm giác thư viện ảnh thật mà không cần tải ảnh.
-class PropertyPhoto extends StatelessWidget {
+class PropertyPhotoView extends StatelessWidget {
+  final String? filePath;
   final int seed;
   final BorderRadius? borderRadius;
 
-  const PropertyPhoto({super.key, required this.seed, this.borderRadius});
+  const PropertyPhotoView({
+    super.key,
+    this.filePath,
+    this.seed = 0,
+    this.borderRadius,
+  });
 
   static const List<List<Color>> _gradients = [
     [Color(0xFFE8DCC8), Color(0xFFD3C0A0)],
@@ -34,43 +38,58 @@ class PropertyPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final path = filePath;
+    if (path != null) {
+      return ClipRRect(
+        borderRadius: borderRadius ?? BorderRadius.zero,
+        child: Image.file(
+          File(path),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _placeholder(),
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: borderRadius ?? BorderRadius.zero,
+      child: _placeholder(),
+    );
+  }
+
+  Widget _placeholder() {
     final colors = _gradients[seed % _gradients.length];
     final icon = _icons[seed % _icons.length];
 
-    return ClipRRect(
-      borderRadius: borderRadius ?? BorderRadius.zero,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: colors,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: Icon(
+              icon,
+              size: 42,
+              color: Colors.white.withValues(alpha: 0.38),
+            ),
           ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Center(
-              child: Icon(
-                icon,
-                size: 42,
-                color: Colors.white.withValues(alpha: 0.38),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.0),
+                  Colors.black.withValues(alpha: 0.10),
+                ],
               ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.0),
-                    Colors.black.withValues(alpha: 0.10),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

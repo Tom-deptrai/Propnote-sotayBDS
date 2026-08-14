@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/property_photo.dart';
+import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/property_photo.dart';
 
 class PhotoGallery extends StatefulWidget {
+  final List<PropertyPhoto> photos;
   final List<int> photoSeeds;
 
-  const PhotoGallery({super.key, required this.photoSeeds});
+  const PhotoGallery({
+    super.key,
+    required this.photos,
+    required this.photoSeeds,
+  });
 
   @override
   State<PhotoGallery> createState() => _PhotoGalleryState();
@@ -24,23 +31,32 @@ class _PhotoGalleryState extends State<PhotoGallery> {
   @override
   Widget build(BuildContext context) {
     final seeds = widget.photoSeeds.isEmpty ? const [0] : widget.photoSeeds;
+    final itemCount = widget.photos.isNotEmpty
+        ? widget.photos.length
+        : seeds.length;
     return Stack(
       fit: StackFit.expand,
       children: [
         PageView.builder(
           controller: _controller,
-          itemCount: seeds.length,
+          itemCount: itemCount,
           onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (context, i) => PropertyPhoto(seed: seeds[i]),
+          itemBuilder: (context, i) {
+            final photo = widget.photos.isEmpty ? null : widget.photos[i];
+            return PropertyPhotoView(
+              filePath: MediaPathScope.resolve(context, photo?.relativePath),
+              seed: seeds[i % seeds.length],
+            );
+          },
         ),
-        if (seeds.length > 1)
+        if (itemCount > 1)
           Positioned(
             bottom: 16,
             left: 0,
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(seeds.length, (i) {
+              children: List.generate(itemCount, (i) {
                 final active = i == _page;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 150),

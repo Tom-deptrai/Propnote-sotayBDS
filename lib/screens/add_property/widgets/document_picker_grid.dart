@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
+import '../../../data/services/app_runtime.dart';
+import '../../../models/property_document.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/document_photo.dart';
+import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/mock_actions.dart';
 
-/// Lưới tài liệu/hình bổ sung — tách biệt với ảnh BĐS chính. Mock chụp
-/// ảnh/chọn thư viện, không dùng camera/gallery thật.
 class DocumentPickerGrid extends StatelessWidget {
+  final String propertyId;
+  final List<PropertyDocument> documents;
   final List<int> documentSeeds;
+  final ValueChanged<List<PropertyDocument>> onDocumentsChanged;
   final ValueChanged<List<int>> onChanged;
 
   const DocumentPickerGrid({
     super.key,
+    required this.propertyId,
+    required this.documents,
     required this.documentSeeds,
+    required this.onDocumentsChanged,
     required this.onChanged,
   });
 
@@ -20,26 +29,49 @@ class DocumentPickerGrid extends StatelessWidget {
     final source = await showImageSourceActionSheet(
       context,
       title: 'Thêm tài liệu / hình',
+      includeFiles: true,
     );
     if (source == null) return;
-    final nextSeed = (documentSeeds.isEmpty ? 0 : documentSeeds.last + 1) % 4;
-    onChanged([...documentSeeds, nextSeed]);
-    if (context.mounted) {
+    if (!context.mounted) return;
+    final runtime = context.read<AppRuntime?>();
+    if (runtime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            source == 'camera'
-                ? 'Đã chụp ảnh tài liệu (demo)'
-                : 'Đã chọn tài liệu từ thư viện (demo)',
-          ),
-        ),
+        const SnackBar(content: Text('Không thể mở trình chọn tài liệu')),
       );
+      return;
+    }
+    try {
+      final document = source == 'file'
+          ? await runtime.mediaStorage.pickDocumentFile(propertyId: propertyId)
+          : await runtime.mediaStorage.pickDocumentImage(
+              propertyId: propertyId,
+              source: source == 'camera'
+                  ? ImageSource.camera
+                  : ImageSource.gallery,
+            );
+      if (document != null) {
+        onDocumentsChanged([
+          ...documents,
+          document.copyWith(sortOrder: documents.length),
+        ]);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể thêm tài liệu')),
+        );
+      }
     }
   }
 
   void _removeDocument(int index) {
-    final updated = [...documentSeeds]..removeAt(index);
-    onChanged(updated);
+    if (index < documents.length) {
+      final updated = [...documents]..removeAt(index);
+      onDocumentsChanged(updated);
+    } else {
+      final updated = [...documentSeeds]..removeAt(index - documents.length);
+      onChanged(updated);
+    }
   }
 
   @override
@@ -48,10 +80,11 @@ class DocumentPickerGrid extends StatelessWidget {
       height: 92,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: documentSeeds.length + 1,
+        itemCount: documents.length + documentSeeds.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
-          if (i == documentSeeds.length) {
+          final mediaCount = documents.length + documentSeeds.length;
+          if (i == mediaCount) {
             return InkWell(
               onTap: () => _addDocument(context),
               borderRadius: BorderRadius.circular(12),
@@ -81,13 +114,20 @@ class DocumentPickerGrid extends StatelessWidget {
               ),
             );
           }
+          final document = i < documents.length ? documents[i] : null;
+          final seedIndex = i - documents.length;
           return Stack(
             children: [
               SizedBox(
                 width: 92,
                 height: 92,
-                child: DocumentPhoto(
-                  seed: documentSeeds[i],
+                child: DocumentPhotoView(
+                  filePath: MediaPathScope.resolve(
+                    context,
+                    document?.thumbnailRelativePath ?? document?.relativePath,
+                  ),
+                  mimeType: document?.mimeType,
+                  seed: seedIndex >= 0 ? documentSeeds[seedIndex] : 0,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),

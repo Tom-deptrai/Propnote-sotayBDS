@@ -10,6 +10,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/area_picker_sheet.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/document_photo.dart';
+import '../../widgets/media_path_scope.dart';
 import '../../widgets/mini_map_preview.dart';
 import '../../widgets/status_badge.dart';
 import '../add_property/add_property_screen.dart';
@@ -201,7 +202,10 @@ class PropertyDetailScreen extends StatelessWidget {
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: PhotoGallery(photoSeeds: property.photoSeeds),
+              background: PhotoGallery(
+                photos: property.photos,
+                photoSeeds: property.photoSeeds,
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -304,23 +308,40 @@ class PropertyDetailScreen extends StatelessWidget {
                     height: 150,
                     pinColor: property.status.color,
                   ),
-                  if (property.documentSeeds.isNotEmpty) ...[
+                  if (property.documents.isNotEmpty ||
+                      property.documentSeeds.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     const _SectionTitle('Tài liệu / Hình bổ sung'),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: property.documentSeeds.length,
+                      itemCount: property.documents.isNotEmpty
+                          ? property.documents.length
+                          : property.documentSeeds.length,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 4,
                             crossAxisSpacing: 8,
                             mainAxisSpacing: 8,
                           ),
-                      itemBuilder: (context, i) => DocumentPhoto(
-                        seed: property.documentSeeds[i],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      itemBuilder: (context, i) {
+                        final document = property.documents.isEmpty
+                            ? null
+                            : property.documents[i];
+                        return DocumentPhotoView(
+                          filePath: MediaPathScope.resolve(
+                            context,
+                            document?.thumbnailRelativePath ??
+                                document?.relativePath,
+                          ),
+                          mimeType: document?.mimeType,
+                          seed: property.documentSeeds.isEmpty
+                              ? 0
+                              : property.documentSeeds[i %
+                                    property.documentSeeds.length],
+                          borderRadius: BorderRadius.circular(10),
+                        );
+                      },
                     ),
                   ],
                   if (property.contacts.isNotEmpty) ...[

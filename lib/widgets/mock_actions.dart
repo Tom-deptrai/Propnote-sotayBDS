@@ -8,6 +8,7 @@ import '../theme/app_colors.dart';
 Future<String?> showImageSourceActionSheet(
   BuildContext context, {
   String title = 'Thêm ảnh',
+  bool includeFiles = false,
 }) {
   return showCupertinoModalPopup<String>(
     context: context,
@@ -36,6 +37,18 @@ Future<String?> showImageSourceActionSheet(
             ],
           ),
         ),
+        if (includeFiles)
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'file'),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.insert_drive_file_outlined, size: 20),
+                SizedBox(width: 8),
+                Text('Chọn tệp từ Files'),
+              ],
+            ),
+          ),
       ],
       cancelButton: CupertinoActionSheetAction(
         onPressed: () => Navigator.pop(context),

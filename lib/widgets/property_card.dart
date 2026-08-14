@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/property.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
+import 'media_path_scope.dart';
 import 'property_photo.dart';
 import 'status_badge.dart';
 
@@ -36,8 +37,13 @@ class PropertyCard extends StatelessWidget {
             SizedBox(
               width: 92,
               height: 92,
-              child: PropertyPhoto(
-                seed: property.photoSeeds.first,
+              child: PropertyPhotoView(
+                filePath: MediaPathScope.resolve(
+                  context,
+                  property.photos.firstOrNull?.thumbnailRelativePath ??
+                      property.photos.firstOrNull?.relativePath,
+                ),
+                seed: property.photoSeeds.firstOrNull ?? 0,
                 borderRadius: BorderRadius.circular(12),
               ),
             ),

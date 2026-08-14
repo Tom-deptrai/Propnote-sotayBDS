@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>PropNote cần camera để chụp ảnh bất động sản và tài liệu.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PropNote cần truy cập thư viện để chọn ảnh bất động sản và tài liệu.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -5,6 +5,7 @@ import 'data/services/app_runtime.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_messenger.dart';
+import 'widgets/media_path_scope.dart';
 import 'widgets/root_shell.dart';
 
 Future<void> main() async {
@@ -34,12 +35,15 @@ class PropNoteApp extends StatelessWidget {
         Provider<AppRuntime?>.value(value: runtime),
         ChangeNotifierProvider<AppState>.value(value: appState ?? AppState()),
       ],
-      child: MaterialApp(
-        title: 'PropNote',
-        debugShowCheckedModeBanner: false,
-        scaffoldMessengerKey: rootMessengerKey,
-        theme: AppTheme.light,
-        home: const RootShell(),
+      child: MediaPathScope(
+        directories: runtime?.directories,
+        child: MaterialApp(
+          title: 'PropNote',
+          debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: rootMessengerKey,
+          theme: AppTheme.light,
+          home: const RootShell(),
+        ),
       ),
     );
   }

@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../data/services/app_runtime.dart';
+import '../../data/services/media_storage.dart';
 import '../../models/contact.dart';
 import '../../models/property.dart';
+import '../../models/property_document.dart';
+import '../../models/property_photo.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_colors.dart';
@@ -47,7 +54,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   bool get _numericFieldFocused =>
       _priceFocus.hasFocus || _areaFocus.hasFocus || _frontageFocus.hasFocus;
 
-  List<int> _photoSeeds = [0];
+  List<int> _photoSeeds = [];
   List<int> _documentSeeds = [];
   List<Contact> _contacts = [];
   PropertyStatus _status = PropertyStatus.selling;
@@ -59,6 +66,11 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   final Set<String> _tags = {};
   DateTime? _surveyDate;
   bool _saving = false;
+  late final String _propertyId;
+  List<PropertyPhoto> _photos = [];
+  List<PropertyDocument> _documents = [];
+  MediaStorage? _mediaStorage;
+  bool _saveCompleted = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -69,6 +81,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       node.addListener(() => setState(() {}));
     }
     final p = widget.existing;
+    _propertyId = p?.id ?? const Uuid().v4();
     if (p != null) {
       _titleController.text = p.title;
       _priceController.text = p.price > 0
@@ -83,6 +96,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       _notesController.text = p.notes;
       _photoSeeds = List.of(p.photoSeeds);
       _documentSeeds = List.of(p.documentSeeds);
+      _photos = List.of(p.photos);
+      _documents = List.of(p.documents);
       _contacts = List.of(p.contacts);
       _status = p.status;
       _areaId = p.areaId;
@@ -98,6 +113,12 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _mediaStorage ??= context.read<AppRuntime?>()?.mediaStorage;
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _priceController.dispose();
@@ -107,6 +128,12 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     _priceFocus.dispose();
     _areaFocus.dispose();
     _frontageFocus.dispose();
+    if (!_saveCompleted) {
+      final storage = _mediaStorage;
+      if (storage != null) {
+        unawaited(storage.cleanupDraft(_propertyId));
+      }
+    }
     super.dispose();
   }
 
@@ -349,45 +376,76 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         .where((tag) => _tags.contains(tag.name))
         .toList();
     final now = DateTime.now();
-    final property = Property(
-      id: existing?.id ?? state.createId(),
-      title: _titleController.text.trim(),
-      address: _titleController.text.trim(),
-      areaId: areaId,
-      status: _status,
-      price: _priceValue,
-      landArea: parseVnNumber(_areaController.text) ?? 0,
-      propertyTypeId: typeModel.id,
-      propertyType: propertyType,
-      frontage: parseVnNumber(_frontageController.text),
-      floors: _floors,
-      tagIds: selectedTagModels.map((tag) => tag.id).toList(),
-      tags: selectedTagModels.map((tag) => tag.name).toList(),
-      notes: _notesController.text.trim(),
-      surveyDate: _surveyDate,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      mapX: _location.dx,
-      mapY: _location.dy,
-      latitude: existing?.latitude,
-      longitude: existing?.longitude,
-      photos: existing?.photos ?? const [],
-      documents: existing?.documents ?? const [],
-      photoSeeds: _photoSeeds.isEmpty ? const [0] : _photoSeeds,
-      documentSeeds: _documentSeeds,
-      contacts: _contacts,
-    );
     setState(() => _saving = true);
+    MediaCommit? mediaCommit;
+    var savedPhotos = _photos;
+    var savedDocuments = _documents;
     try {
+      final storage = _mediaStorage;
+      if (storage != null) {
+        mediaCommit = await storage.commitDraft(
+          propertyId: _propertyId,
+          photos: _photos,
+          documents: _documents,
+        );
+        savedPhotos = mediaCommit.photos;
+        savedDocuments = mediaCommit.documents;
+      }
+      final property = Property(
+        id: _propertyId,
+        title: _titleController.text.trim(),
+        address: _titleController.text.trim(),
+        areaId: areaId,
+        status: _status,
+        price: _priceValue,
+        landArea: parseVnNumber(_areaController.text) ?? 0,
+        propertyTypeId: typeModel.id,
+        propertyType: propertyType,
+        frontage: parseVnNumber(_frontageController.text),
+        floors: _floors,
+        tagIds: selectedTagModels.map((tag) => tag.id).toList(),
+        tags: selectedTagModels.map((tag) => tag.name).toList(),
+        notes: _notesController.text.trim(),
+        surveyDate: _surveyDate,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        mapX: _location.dx,
+        mapY: _location.dy,
+        latitude: existing?.latitude,
+        longitude: existing?.longitude,
+        photos: savedPhotos,
+        documents: savedDocuments,
+        photoSeeds: _photoSeeds,
+        documentSeeds: _documentSeeds,
+        contacts: _contacts,
+      );
       if (_isEditing) {
         await state.updateProperty(property);
       } else {
         await state.addProperty(property);
       }
+      final removedPaths = <String>[
+        for (final photo in existing?.photos ?? const <PropertyPhoto>[])
+          if (!savedPhotos.any((current) => current.id == photo.id)) ...[
+            photo.relativePath,
+            if (photo.thumbnailRelativePath != null)
+              photo.thumbnailRelativePath!,
+          ],
+        for (final document
+            in existing?.documents ?? const <PropertyDocument>[])
+          if (!savedDocuments.any((current) => current.id == document.id)) ...[
+            document.relativePath,
+            if (document.thumbnailRelativePath != null)
+              document.thumbnailRelativePath!,
+          ],
+      ];
+      await _mediaStorage?.deletePaths(removedPaths);
+      _saveCompleted = true;
       if (!mounted) return;
       Navigator.pop(context);
       showAppSnackBar(_isEditing ? 'Đã lưu thay đổi' : 'Đã lưu bất động sản');
     } catch (_) {
+      await mediaCommit?.rollback();
       if (mounted) showAppSnackBar('Không thể lưu bất động sản');
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -424,7 +482,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
           children: [
             const _SectionLabel('Ảnh'),
             PhotoPickerGrid(
+              propertyId: _propertyId,
+              photos: _photos,
               photoSeeds: _photoSeeds,
+              onPhotosChanged: (v) => setState(() => _photos = v),
               onChanged: (v) => setState(() => _photoSeeds = v),
             ),
             const SizedBox(height: 18),
@@ -629,7 +690,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
             const SizedBox(height: 18),
             const _SectionLabel('Tài liệu / Hình bổ sung'),
             DocumentPickerGrid(
+              propertyId: _propertyId,
+              documents: _documents,
               documentSeeds: _documentSeeds,
+              onDocumentsChanged: (v) => setState(() => _documents = v),
               onChanged: (v) => setState(() => _documentSeeds = v),
             ),
             const SizedBox(height: 18),

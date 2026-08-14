@@ -1,43 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 
+import '../../../data/services/app_runtime.dart';
+import '../../../models/property_photo.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/mock_actions.dart';
 import '../../../widgets/property_photo.dart';
 
-/// Lưới ảnh lớn, trực quan cho form thêm nhanh. Không dùng camera/gallery
-/// thật — chạm "Thêm ảnh" mở lựa chọn Chụp ảnh / Chọn từ thư viện (mock)
-/// rồi thêm một ảnh placeholder mới. Cho phép nhiều ảnh.
 class PhotoPickerGrid extends StatelessWidget {
+  final String propertyId;
+  final List<PropertyPhoto> photos;
   final List<int> photoSeeds;
+  final ValueChanged<List<PropertyPhoto>> onPhotosChanged;
   final ValueChanged<List<int>> onChanged;
 
   const PhotoPickerGrid({
     super.key,
+    required this.propertyId,
+    required this.photos,
     required this.photoSeeds,
+    required this.onPhotosChanged,
     required this.onChanged,
   });
 
   Future<void> _addPhoto(BuildContext context) async {
     final source = await showImageSourceActionSheet(context);
     if (source == null) return;
-    final nextSeed = (photoSeeds.isEmpty ? 0 : photoSeeds.last + 1) % 8;
-    onChanged([...photoSeeds, nextSeed]);
-    if (context.mounted) {
+    if (!context.mounted) return;
+    final runtime = context.read<AppRuntime?>();
+    if (runtime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            source == 'camera'
-                ? 'Đã chụp ảnh (demo)'
-                : 'Đã chọn ảnh từ thư viện (demo)',
-          ),
-        ),
+        const SnackBar(content: Text('Không thể mở thư viện ảnh lúc này')),
       );
+      return;
+    }
+    try {
+      final picked = await runtime.mediaStorage.pickPhotos(
+        propertyId: propertyId,
+        source: source == 'camera' ? ImageSource.camera : ImageSource.gallery,
+      );
+      onPhotosChanged([
+        ...photos,
+        for (var i = 0; i < picked.length; i++)
+          picked[i].copyWith(sortOrder: photos.length + i),
+      ]);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Không thể thêm ảnh')));
+      }
     }
   }
 
   void _removePhoto(int index) {
-    final updated = [...photoSeeds]..removeAt(index);
-    onChanged(updated);
+    if (index < photos.length) {
+      final updated = [...photos]..removeAt(index);
+      onPhotosChanged(updated);
+    } else {
+      final updated = [...photoSeeds]..removeAt(index - photos.length);
+      onChanged(updated);
+    }
   }
 
   @override
@@ -46,22 +71,29 @@ class PhotoPickerGrid extends StatelessWidget {
       height: 108,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: photoSeeds.length + 1,
+        itemCount: photos.length + photoSeeds.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
-          if (i == photoSeeds.length) {
+          final mediaCount = photos.length + photoSeeds.length;
+          if (i == mediaCount) {
             return _AddTile(
               onTap: () => _addPhoto(context),
-              isFirst: photoSeeds.isEmpty,
+              isFirst: mediaCount == 0,
             );
           }
+          final photo = i < photos.length ? photos[i] : null;
+          final seedIndex = i - photos.length;
           return Stack(
             children: [
               SizedBox(
                 width: 108,
                 height: 108,
-                child: PropertyPhoto(
-                  seed: photoSeeds[i],
+                child: PropertyPhotoView(
+                  filePath: MediaPathScope.resolve(
+                    context,
+                    photo?.thumbnailRelativePath ?? photo?.relativePath,
+                  ),
+                  seed: seedIndex >= 0 ? photoSeeds[seedIndex] : 0,
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),

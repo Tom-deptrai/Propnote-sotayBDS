@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../utils/app_messenger.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/media_path_scope.dart';
 import '../../widgets/property_photo.dart';
 import '../../widgets/status_badge.dart';
 
@@ -68,8 +69,13 @@ class TrashScreen extends StatelessWidget {
                           SizedBox(
                             width: 56,
                             height: 56,
-                            child: PropertyPhoto(
-                              seed: p.photoSeeds.first,
+                            child: PropertyPhotoView(
+                              filePath: MediaPathScope.resolve(
+                                context,
+                                p.photos.firstOrNull?.thumbnailRelativePath ??
+                                    p.photos.firstOrNull?.relativePath,
+                              ),
+                              seed: p.photoSeeds.firstOrNull ?? 0,
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),

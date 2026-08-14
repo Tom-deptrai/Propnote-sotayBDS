@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../data/mock_data.dart';
 import '../data/repositories/app_repository.dart';
+import '../data/services/media_storage.dart';
 import '../models/area.dart';
 import '../models/property.dart';
 import '../models/property_status.dart';
@@ -16,6 +17,7 @@ import '../models/property_type.dart';
 /// để các test UI không phụ thuộc platform SQLite.
 class AppState extends ChangeNotifier {
   final AppRepository? _repository;
+  final MediaStorage? mediaStorage;
   final Uuid _uuid;
 
   late List<Property> _properties;
@@ -34,7 +36,7 @@ class AppState extends ChangeNotifier {
   static const double markerScaleMax = 1.4;
   static const double markerScaleDefault = 1.0;
 
-  AppState({AppRepository? repository, Uuid? uuid})
+  AppState({AppRepository? repository, this.mediaStorage, Uuid? uuid})
     : _repository = repository,
       _uuid = uuid ?? const Uuid() {
     if (repository == null) {
@@ -242,19 +244,47 @@ class AppState extends ChangeNotifier {
     if (index == -1) {
       throw StateError('Không tìm thấy BĐS trong thùng rác: $propertyId');
     }
-    final assets = await _persist(
-      () => _repository?.deletePropertyPermanently(propertyId),
-    );
-    _trash.removeAt(index);
-    notifyListeners();
-    return assets?.relativePaths ?? const [];
+    final staged = await mediaStorage?.stagePropertyDeletion(propertyId);
+    try {
+      final assets = await _persist(
+        () => _repository?.deletePropertyPermanently(propertyId),
+      );
+      _trash.removeAt(index);
+      notifyListeners();
+      final paths = assets?.relativePaths ?? const <String>[];
+      await mediaStorage?.deletePaths(paths);
+      await staged?.complete();
+      return paths;
+    } catch (_) {
+      await staged?.rollback();
+      rethrow;
+    }
   }
 
   Future<List<PropertyAssetPaths>> emptyTrash() async {
-    final assets = await _persist(() => _repository?.emptyTrash());
-    _trash.clear();
-    notifyListeners();
-    return assets ?? const [];
+    final staged = <StagedPropertyDeletion>[];
+    try {
+      if (mediaStorage != null) {
+        for (final property in _trash) {
+          staged.add(await mediaStorage!.stagePropertyDeletion(property.id));
+        }
+      }
+      final assets = await _persist(() => _repository?.emptyTrash());
+      _trash.clear();
+      notifyListeners();
+      for (final asset in assets ?? const <PropertyAssetPaths>[]) {
+        await mediaStorage?.deletePaths(asset.relativePaths);
+      }
+      for (final deletion in staged) {
+        await deletion.complete();
+      }
+      return assets ?? const [];
+    } catch (_) {
+      for (final deletion in staged.reversed) {
+        await deletion.rollback();
+      }
+      rethrow;
+    }
   }
 
   Future<void> addArea(String name) async {
