@@ -2,10 +2,19 @@
 class PropertyArea {
   final String id;
   final String name;
+  final int sortOrder;
 
-  const PropertyArea({required this.id, required this.name});
+  const PropertyArea({
+    required this.id,
+    required this.name,
+    this.sortOrder = 0,
+  });
 
-  PropertyArea copyWith({String? name}) {
-    return PropertyArea(id: id, name: name ?? this.name);
+  PropertyArea copyWith({String? name, int? sortOrder}) {
+    return PropertyArea(
+      id: id,
+      name: name ?? this.name,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
   }
 }

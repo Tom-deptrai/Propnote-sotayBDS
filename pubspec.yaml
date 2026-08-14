@@ -36,6 +36,21 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
   intl: ^0.20.3
+  sqflite: ^2.4.3
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  uuid: ^4.6.0
+  image_picker: ^1.2.3
+  flutter_image_compress: ^2.5.1
+  file_picker: ^12.0.0
+  google_maps_flutter: ^2.18.0
+  geolocator: ^14.0.3
+  speech_to_text: ^7.4.0
+  url_launcher: ^6.3.2
+  share_plus: ^13.3.0
+  archive: ^4.0.9
+  mime: ^2.0.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -50,6 +65,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   integration_test:
     sdk: flutter
+  sqflite_common_ffi: ^2.4.2
 
 # Official PropNote app icon. Source image is used as-is (no redesign,
 # recolor, or crop) — see assets/icon/propnote_icon.png.

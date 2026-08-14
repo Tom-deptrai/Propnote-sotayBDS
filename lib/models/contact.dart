@@ -3,14 +3,21 @@ class Contact {
   final String id;
   final String label;
   final String phone;
+  final int sortOrder;
 
-  const Contact({required this.id, required this.label, required this.phone});
+  const Contact({
+    required this.id,
+    required this.label,
+    required this.phone,
+    this.sortOrder = 0,
+  });
 
-  Contact copyWith({String? label, String? phone}) {
+  Contact copyWith({String? label, String? phone, int? sortOrder}) {
     return Contact(
       id: id,
       label: label ?? this.label,
       phone: phone ?? this.phone,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }
