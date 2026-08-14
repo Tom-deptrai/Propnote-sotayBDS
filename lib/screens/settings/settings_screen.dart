@@ -64,6 +64,7 @@ class SettingsScreen extends StatelessWidget {
       showAppSnackBar('Đang khôi phục dữ liệu...');
       await runtime.backupService.restoreBackup(path);
       await state.reload();
+      await runtime.reconcileMedia();
       showAppSnackBar('Đã khôi phục dữ liệu');
     } catch (error) {
       showAppSnackBar(error.toString());

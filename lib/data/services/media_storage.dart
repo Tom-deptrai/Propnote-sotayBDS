@@ -209,6 +209,68 @@ class MediaStorage {
     if (await directory.exists()) await directory.delete(recursive: true);
   }
 
+  Future<void> reconcileAfterStartup({
+    required Set<String> propertyIds,
+    required Set<String> referencedPaths,
+  }) async {
+    final deleting = Directory(directories.resolve('temporary/deleting'));
+    if (await deleting.exists()) {
+      await for (final entity in deleting.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        String? propertyId;
+        for (final id in propertyIds) {
+          if (p.basename(entity.path).endsWith('_$id')) {
+            propertyId = id;
+            break;
+          }
+        }
+        if (propertyId == null) {
+          await entity.delete(recursive: true);
+          continue;
+        }
+        final original = Directory(
+          directories.resolve('media/properties/$propertyId'),
+        );
+        if (await original.exists()) {
+          await entity.delete(recursive: true);
+        } else {
+          await original.parent.create(recursive: true);
+          await entity.rename(original.path);
+        }
+      }
+    }
+
+    final drafts = Directory(directories.resolve('temporary/drafts'));
+    if (await drafts.exists()) await drafts.delete(recursive: true);
+
+    final properties = Directory(directories.propertiesMediaPath);
+    if (!await properties.exists()) return;
+    await for (final entity in properties.list(followLinks: false)) {
+      if (entity is! Directory) continue;
+      final propertyId = p.basename(entity.path);
+      if (!propertyIds.contains(propertyId)) {
+        await entity.delete(recursive: true);
+        continue;
+      }
+      final childDirectories = <Directory>[];
+      await for (final child in entity.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (child is Directory) {
+          childDirectories.add(child);
+        } else if (child is File) {
+          final relativePath = directories.relative(child.path);
+          if (!referencedPaths.contains(relativePath)) await child.delete();
+        }
+      }
+      childDirectories.sort((a, b) => b.path.length.compareTo(a.path.length));
+      for (final directory in childDirectories) {
+        if (await directory.list().isEmpty) await directory.delete();
+      }
+    }
+  }
+
   Future<void> deletePaths(Iterable<String> relativePaths) async {
     for (final relativePath in relativePaths.toSet()) {
       final file = File(directories.resolve(relativePath));

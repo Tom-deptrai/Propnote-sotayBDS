@@ -52,7 +52,7 @@ class AppRuntime {
         .isGoogleMapsConfigured();
     final state = AppState(repository: repository, mediaStorage: mediaStorage);
     await state.initialize();
-    return AppRuntime(
+    final runtime = AppRuntime(
       directories: directories,
       database: database,
       repository: repository,
@@ -63,6 +63,29 @@ class AppRuntime {
       backupService: backupService,
       googleMapsConfigured: googleMapsConfigured,
       state: state,
+    );
+    await runtime.reconcileMedia();
+    return runtime;
+  }
+
+  Future<void> reconcileMedia() async {
+    final properties = [...state.properties, ...state.trash];
+    await mediaStorage.reconcileAfterStartup(
+      propertyIds: properties.map((property) => property.id).toSet(),
+      referencedPaths: {
+        for (final property in properties)
+          for (final photo in property.photos) photo.relativePath,
+        for (final property in properties)
+          for (final photo in property.photos)
+            if (photo.thumbnailRelativePath != null)
+              photo.thumbnailRelativePath!,
+        for (final property in properties)
+          for (final document in property.documents) document.relativePath,
+        for (final property in properties)
+          for (final document in property.documents)
+            if (document.thumbnailRelativePath != null)
+              document.thumbnailRelativePath!,
+      },
     );
   }
 }

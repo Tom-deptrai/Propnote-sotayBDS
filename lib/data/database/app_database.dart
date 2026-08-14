@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../services/app_directories.dart';
@@ -8,6 +10,7 @@ class AppDatabase {
   final DatabaseFactory factory;
 
   Database? _database;
+  Completer<void>? _maintenance;
 
   AppDatabase({required this.directories, DatabaseFactory? factory})
     : factory = factory ?? databaseFactory;
@@ -16,6 +19,12 @@ class AppDatabase {
   Database? get openedDatabase => _database;
 
   Future<Database> open() async {
+    final maintenance = _maintenance;
+    if (maintenance != null) await maintenance.future;
+    return _open();
+  }
+
+  Future<Database> _open() async {
     final current = _database;
     if (current != null && current.isOpen) return current;
 
@@ -54,5 +63,26 @@ class AppDatabase {
   Future<void> reopen() async {
     await close();
     await open();
+  }
+
+  Future<T> runWhileClosed<T>(Future<T> Function() operation) async {
+    while (_maintenance != null) {
+      await _maintenance!.future;
+    }
+    final maintenance = Completer<void>();
+    _maintenance = maintenance;
+    try {
+      final current = await _open();
+      await current.rawQuery('PRAGMA wal_checkpoint(FULL)');
+      await close();
+      return await operation();
+    } finally {
+      try {
+        await _open();
+      } finally {
+        _maintenance = null;
+        maintenance.complete();
+      }
+    }
   }
 }

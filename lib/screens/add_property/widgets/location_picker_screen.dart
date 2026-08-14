@@ -143,9 +143,21 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       }
     } on LocationFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+        final canOpenSettings =
+            error.reason == LocationFailureReason.serviceDisabled ||
+            error.reason == LocationFailureReason.permissionDeniedForever;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.userMessage),
+            action: canOpenSettings
+                ? SnackBarAction(
+                    label: 'Cài đặt',
+                    onPressed: () =>
+                        runtime.locationService.openSettings(error.reason),
+                  )
+                : null,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _locating = false);

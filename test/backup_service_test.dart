@@ -7,6 +7,7 @@ import 'package:propnote/data/services/app_directories.dart';
 import 'package:propnote/data/services/backup_service.dart';
 import 'package:propnote/models/backup_manifest.dart';
 import 'package:propnote/models/property.dart';
+import 'package:propnote/models/property_photo.dart';
 import 'package:propnote/models/property_status.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -35,7 +36,10 @@ void main() {
     await temporary.delete(recursive: true);
   });
 
-  Future<void> addProperty(String id) async {
+  Future<void> addProperty(
+    String id, {
+    List<PropertyPhoto> photos = const [],
+  }) async {
     final snapshot = await repository.loadSnapshot();
     await repository.saveProperty(
       Property(
@@ -49,6 +53,7 @@ void main() {
         propertyTypeId: snapshot.propertyTypes.first.id,
         propertyType: snapshot.propertyTypes.first.name,
         createdAt: DateTime(2026, 8, 14),
+        photos: photos,
       ),
     );
   }
@@ -98,6 +103,25 @@ void main() {
     expect(
       () => BackupManifest.fromJson(const {'formatVersion': 1}),
       throwsFormatException,
+    );
+  });
+
+  test('rejects backup when referenced media is missing', () async {
+    await addProperty(
+      'missing-media',
+      photos: [
+        PropertyPhoto(
+          id: 'missing-photo',
+          propertyId: 'missing-media',
+          relativePath: 'media/properties/missing-media/photos/missing.jpg',
+          sortOrder: 0,
+          createdAt: DateTime(2026),
+        ),
+      ],
+    );
+    await expectLater(
+      backups.createBackup(),
+      throwsA(isA<BackupValidationException>()),
     );
   });
 }

@@ -98,4 +98,53 @@ void main() {
     expect(() => directories.resolve('/tmp/file'), throwsArgumentError);
     expect(() => directories.resolve('../outside'), throwsArgumentError);
   });
+
+  test(
+    'startup reconciliation restores staged data and removes orphans',
+    () async {
+      const referenced = 'media/properties/property-keep/photos/keep.jpg';
+      final keep = File(directories.resolve(referenced));
+      final unreferenced = File(
+        directories.resolve('media/properties/property-keep/photos/orphan.jpg'),
+      );
+      final orphanProperty = File(
+        directories.resolve(
+          'media/properties/property-orphan/photos/photo.jpg',
+        ),
+      );
+      final stagedProperty = File(
+        directories.resolve(
+          'media/properties/property-staged/photos/photo.jpg',
+        ),
+      );
+      final staleDraft = File(
+        directories.resolve('temporary/drafts/property-new/photos/photo.jpg'),
+      );
+      for (final file in [
+        keep,
+        unreferenced,
+        orphanProperty,
+        stagedProperty,
+        staleDraft,
+      ]) {
+        await file.parent.create(recursive: true);
+        await file.writeAsString('data');
+      }
+      await storage.stagePropertyDeletion('property-staged');
+
+      await storage.reconcileAfterStartup(
+        propertyIds: {'property-keep', 'property-staged'},
+        referencedPaths: {
+          referenced,
+          'media/properties/property-staged/photos/photo.jpg',
+        },
+      );
+
+      expect(await keep.exists(), isTrue);
+      expect(await unreferenced.exists(), isFalse);
+      expect(await orphanProperty.exists(), isFalse);
+      expect(await stagedProperty.exists(), isTrue);
+      expect(await staleDraft.exists(), isFalse);
+    },
+  );
 }

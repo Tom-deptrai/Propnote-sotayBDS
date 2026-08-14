@@ -155,9 +155,21 @@ class _MapScreenState extends State<MapScreen>
       if (mounted) setState(() {});
     } on LocationFailure catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+        final canOpenSettings =
+            error.reason == LocationFailureReason.serviceDisabled ||
+            error.reason == LocationFailureReason.permissionDeniedForever;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.userMessage),
+            action: canOpenSettings
+                ? SnackBarAction(
+                    label: 'Cài đặt',
+                    onPressed: () =>
+                        runtime.locationService.openSettings(error.reason),
+                  )
+                : null,
+          ),
+        );
       }
     }
   }
@@ -220,6 +232,13 @@ class _MapScreenState extends State<MapScreen>
         p.propertyType.toLowerCase().contains(q) ||
         p.notes.toLowerCase().contains(q) ||
         p.tags.any((tag) => tag.toLowerCase().contains(q));
+  }
+
+  Offset _canvasLocation(Property property) {
+    final location = property.location;
+    if (location == null) return Offset(property.mapX, property.mapY);
+    final normalized = location.toLegacyNormalized();
+    return Offset(normalized.x, normalized.y);
   }
 
   Set<Marker> _buildGoogleMarkers(
@@ -340,10 +359,12 @@ class _MapScreenState extends State<MapScreen>
                                 for (final p in visibleProperties)
                                   Positioned(
                                     left:
-                                        mapCanvasSize.width * p.mapX -
+                                        mapCanvasSize.width *
+                                            _canvasLocation(p).dx -
                                         propertyHalf,
                                     top:
-                                        mapCanvasSize.height * p.mapY -
+                                        mapCanvasSize.height *
+                                            _canvasLocation(p).dy -
                                         propertyHalf,
                                     child: PropertyMarker(
                                       status: p.status,

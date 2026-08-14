@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -25,24 +26,23 @@ class BackupService {
   final AppDirectories directories;
   final AppDatabase database;
   final Uuid uuid;
+  Future<void> _operation = Future.value();
 
   BackupService({required this.directories, required this.database, Uuid? uuid})
     : uuid = uuid ?? const Uuid();
 
-  Future<File> createBackup() async {
+  Future<File> createBackup() => _exclusive(_createBackup);
+
+  Future<File> _createBackup() async {
     final working = Directory(
       directories.resolve('temporary/backup-${uuid.v4()}'),
     );
     await working.create(recursive: true);
     try {
       final databaseCopy = File(p.join(working.path, 'data.sqlite'));
-      await database.checkpoint();
-      await database.close();
-      try {
-        await File(database.path).copy(databaseCopy.path);
-      } finally {
-        await database.open();
-      }
+      await database.runWhileClosed(
+        () => File(database.path).copy(databaseCopy.path),
+      );
 
       final mediaSource = Directory(directories.mediaPath);
       final mediaCopy = Directory(p.join(working.path, 'media'));
@@ -61,6 +61,7 @@ class BackupService {
       await File(
         p.join(working.path, 'manifest.json'),
       ).writeAsString(jsonEncode(manifest.toJson()), flush: true);
+      await _validateExtracted(working);
 
       final timestamp = DateTime.now().toUtc().toIso8601String().replaceAll(
         RegExp(r'[:.]'),
@@ -88,7 +89,10 @@ class BackupService {
     }
   }
 
-  Future<void> restoreBackup(String archivePath) async {
+  Future<void> restoreBackup(String archivePath) =>
+      _exclusive(() => _restoreBackup(archivePath));
+
+  Future<void> _restoreBackup(String archivePath) async {
     final extracted = await _extract(archivePath);
     final recovery = Directory(
       directories.resolve('temporary/recovery-${uuid.v4()}'),
@@ -103,42 +107,40 @@ class BackupService {
       final recoveryDatabase = File(p.join(recovery.path, 'data.sqlite'));
       final recoveryMedia = Directory(p.join(recovery.path, 'media'));
 
-      await database.close();
-      var currentDatabaseMoved = false;
-      var currentMediaMoved = false;
-      try {
-        if (await currentDatabase.exists()) {
-          await currentDatabase.rename(recoveryDatabase.path);
-          currentDatabaseMoved = true;
-        }
-        if (await currentMedia.exists()) {
-          await currentMedia.rename(recoveryMedia.path);
-          currentMediaMoved = true;
-        }
+      await database.runWhileClosed(() async {
+        var currentDatabaseMoved = false;
+        var currentMediaMoved = false;
+        try {
+          if (await currentDatabase.exists()) {
+            await currentDatabase.rename(recoveryDatabase.path);
+            currentDatabaseMoved = true;
+          }
+          if (await currentMedia.exists()) {
+            await currentMedia.rename(recoveryMedia.path);
+            currentMediaMoved = true;
+          }
 
-        await currentDatabase.parent.create(recursive: true);
-        await candidateDatabase.rename(currentDatabase.path);
-        if (await candidateMedia.exists()) {
-          await candidateMedia.rename(currentMedia.path);
-        } else {
-          await currentMedia.create(recursive: true);
+          await currentDatabase.parent.create(recursive: true);
+          await candidateDatabase.rename(currentDatabase.path);
+          if (await candidateMedia.exists()) {
+            await candidateMedia.rename(currentMedia.path);
+          } else {
+            await currentMedia.create(recursive: true);
+          }
+        } catch (_) {
+          if (await currentDatabase.exists()) await currentDatabase.delete();
+          if (await currentMedia.exists()) {
+            await currentMedia.delete(recursive: true);
+          }
+          if (currentDatabaseMoved && await recoveryDatabase.exists()) {
+            await recoveryDatabase.rename(currentDatabase.path);
+          }
+          if (currentMediaMoved && await recoveryMedia.exists()) {
+            await recoveryMedia.rename(currentMedia.path);
+          }
+          rethrow;
         }
-        await database.open();
-      } catch (_) {
-        await database.close();
-        if (await currentDatabase.exists()) await currentDatabase.delete();
-        if (await currentMedia.exists()) {
-          await currentMedia.delete(recursive: true);
-        }
-        if (currentDatabaseMoved && await recoveryDatabase.exists()) {
-          await recoveryDatabase.rename(currentDatabase.path);
-        }
-        if (currentMediaMoved && await recoveryMedia.exists()) {
-          await recoveryMedia.rename(currentMedia.path);
-        }
-        await database.open();
-        rethrow;
-      }
+      });
     } finally {
       if (await extracted.exists()) await extracted.delete(recursive: true);
       if (await recovery.exists()) await recovery.delete(recursive: true);
@@ -233,6 +235,29 @@ class BackupService {
           'Quan hệ dữ liệu trong backup bị hỏng',
         );
       }
+      final mediaRows = <Map<String, Object?>>[
+        ...await candidate.query(
+          'property_photos',
+          columns: ['relative_path', 'thumbnail_relative_path'],
+        ),
+        ...await candidate.query(
+          'property_documents',
+          columns: ['relative_path', 'thumbnail_relative_path'],
+        ),
+      ];
+      for (final row in mediaRows) {
+        for (final column in ['relative_path', 'thumbnail_relative_path']) {
+          final relativePath = row[column] as String?;
+          if (relativePath == null) continue;
+          final target = p.normalize(p.join(extracted.path, relativePath));
+          if (!p.isWithin(extracted.path, target) ||
+              !await File(target).exists()) {
+            throw const BackupValidationException(
+              'Backup thiếu tệp ảnh hoặc tài liệu được database tham chiếu',
+            );
+          }
+        }
+      }
     } on BackupValidationException {
       rethrow;
     } catch (_) {
@@ -247,6 +272,18 @@ class BackupService {
 
   Future<String> _sha256(File file) async =>
       (await sha256.bind(file.openRead()).first).toString();
+
+  Future<T> _exclusive<T>(Future<T> Function() operation) {
+    final completer = Completer<T>();
+    _operation = _operation.then((_) async {
+      try {
+        completer.complete(await operation());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
+  }
 
   Future<void> _copyDirectory(Directory source, Directory destination) async {
     await destination.create(recursive: true);

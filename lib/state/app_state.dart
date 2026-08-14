@@ -118,7 +118,17 @@ class AppState extends ChangeNotifier {
   Future<void> reload() async {
     if (_repository == null) return;
     _isInitialized = false;
-    await initialize();
+    try {
+      await initialize();
+    } catch (_) {
+      _properties = [];
+      _trash = [];
+      _areas = [];
+      _propertyTypeModels = [];
+      _tagModels = [];
+      notifyListeners();
+      rethrow;
+    }
   }
 
   void clearError() {
@@ -128,6 +138,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setMarkerScale(double value) {
+    if (_repository != null && !_isInitialized) {
+      return Future.error(StateError('Dữ liệu ứng dụng chưa sẵn sàng'));
+    }
     final previous = _markerScale;
     final next = value.clamp(markerScaleMin, markerScaleMax);
     if (next == previous) return Future.value();
@@ -263,6 +276,11 @@ class AppState extends ChangeNotifier {
       await staged?.complete();
     } catch (error, stackTrace) {
       debugPrint('Không thể dọn media đã xoá: $error\n$stackTrace');
+      try {
+        await _reconcileMedia();
+      } catch (_) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
     }
     return paths;
   }
@@ -296,6 +314,11 @@ class AppState extends ChangeNotifier {
       debugPrint(
         'Không thể dọn toàn bộ media trong thùng rác: $error\n$stackTrace',
       );
+      try {
+        await _reconcileMedia();
+      } catch (_) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
     }
     return assets ?? const [];
   }
@@ -575,7 +598,33 @@ class AppState extends ChangeNotifier {
     _trash = _trash.map(transform).toList();
   }
 
+  Future<void> _reconcileMedia() async {
+    final storage = mediaStorage;
+    if (storage == null) return;
+    final properties = [..._properties, ..._trash];
+    await storage.reconcileAfterStartup(
+      propertyIds: properties.map((property) => property.id).toSet(),
+      referencedPaths: {
+        for (final property in properties)
+          for (final photo in property.photos) photo.relativePath,
+        for (final property in properties)
+          for (final photo in property.photos)
+            if (photo.thumbnailRelativePath != null)
+              photo.thumbnailRelativePath!,
+        for (final property in properties)
+          for (final document in property.documents) document.relativePath,
+        for (final property in properties)
+          for (final document in property.documents)
+            if (document.thumbnailRelativePath != null)
+              document.thumbnailRelativePath!,
+      },
+    );
+  }
+
   Future<T?> _persist<T>(Future<T>? Function() operation) async {
+    if (_repository != null && !_isInitialized) {
+      throw StateError('Dữ liệu ứng dụng chưa sẵn sàng');
+    }
     final future = operation();
     if (future == null) return null;
     try {

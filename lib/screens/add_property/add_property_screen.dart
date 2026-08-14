@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/services/app_runtime.dart';
+import '../../data/services/location_service.dart';
 import '../../data/services/media_storage.dart';
 import '../../models/contact.dart';
 import '../../models/geo_point.dart';
@@ -213,6 +214,23 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         _locationTouched = true;
       });
       showAppSnackBar('Đã dùng vị trí hiện tại');
+    } on LocationFailure catch (error) {
+      if (!mounted) return;
+      final canOpenSettings =
+          error.reason == LocationFailureReason.serviceDisabled ||
+          error.reason == LocationFailureReason.permissionDeniedForever;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.userMessage),
+          action: canOpenSettings
+              ? SnackBarAction(
+                  label: 'Cài đặt',
+                  onPressed: () =>
+                      runtime.locationService.openSettings(error.reason),
+                )
+              : null,
+        ),
+      );
     } catch (error) {
       showAppSnackBar(error.toString());
     } finally {
@@ -455,8 +473,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       ];
       try {
         await _mediaStorage?.deletePaths(removedPaths);
+        await _mediaStorage?.cleanupDraft(_propertyId);
       } catch (error, stackTrace) {
-        debugPrint('Không thể dọn media cũ: $error\n$stackTrace');
+        debugPrint('Không thể dọn media sau khi lưu: $error\n$stackTrace');
       }
       _saveCompleted = true;
       if (!mounted) return;

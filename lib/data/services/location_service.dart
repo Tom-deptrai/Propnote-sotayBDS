@@ -70,5 +70,8 @@ class LocationService {
     }
   }
 
-  Future<bool> openSettings() => Geolocator.openAppSettings();
+  Future<bool> openSettings(LocationFailureReason reason) =>
+      reason == LocationFailureReason.serviceDisabled
+      ? Geolocator.openLocationSettings()
+      : Geolocator.openAppSettings();
 }

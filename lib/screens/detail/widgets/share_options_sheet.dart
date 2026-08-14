@@ -161,11 +161,8 @@ void _showPreview(
   Map<String, bool> selected,
 ) {
   final lines = <String>[];
-  if (selected['photos'] == true) {
-    final photoCount = property.photos.isNotEmpty
-        ? property.photos.length
-        : property.photoSeeds.length;
-    lines.add('📷 Kèm $photoCount ảnh BĐS');
+  if (selected['photos'] == true && property.photos.isNotEmpty) {
+    lines.add('📷 Kèm ${property.photos.length} ảnh BĐS');
   }
   if (selected['price'] == true) {
     lines.add('Giá: ${formatPriceShort(property.price)}');
@@ -191,12 +188,8 @@ void _showPreview(
       '${location.longitude.toStringAsFixed(6)}',
     );
   }
-  if (selected['documents'] == true &&
-      (property.documents.isNotEmpty || property.documentSeeds.isNotEmpty)) {
-    final documentCount = property.documents.isNotEmpty
-        ? property.documents.length
-        : property.documentSeeds.length;
-    lines.add('Tài liệu: $documentCount tệp đính kèm');
+  if (selected['documents'] == true && property.documents.isNotEmpty) {
+    lines.add('Tài liệu: ${property.documents.length} tệp đính kèm');
   }
   if (selected['contacts'] == true && property.contacts.isNotEmpty) {
     for (final c in property.contacts) {

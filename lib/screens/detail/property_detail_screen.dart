@@ -459,8 +459,12 @@ class PropertyDetailScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () =>
-                              _openDirections(context, propertyLocation),
+                          onPressed: property.location == null
+                              ? null
+                              : () => _openDirections(
+                                  context,
+                                  property.location!,
+                                ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,

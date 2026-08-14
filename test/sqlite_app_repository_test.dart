@@ -74,8 +74,8 @@ void main() {
         tags: [tag.name],
         notes: 'Persist me',
         surveyDate: now,
-        latitude: 21.0285,
-        longitude: 105.8542,
+        latitude: 21.0385,
+        longitude: 105.8702,
         createdAt: now,
         contacts: const [
           Contact(id: 'contact-1', label: 'Chủ nhà', phone: '0901234567'),
@@ -90,7 +90,9 @@ void main() {
       expect(snapshot.properties.single.propertyTypeId, type.id);
       expect(snapshot.properties.single.tagIds, [tag.id]);
       expect(snapshot.properties.single.contacts.single.phone, '0901234567');
-      expect(snapshot.properties.single.latitude, 21.0285);
+      expect(snapshot.properties.single.latitude, 21.0385);
+      expect(snapshot.properties.single.mapX, closeTo(0.6, 1e-9));
+      expect(snapshot.properties.single.mapY, closeTo(0.4166666667, 1e-9));
 
       await repository.movePropertyToTrash(
         'property-1',

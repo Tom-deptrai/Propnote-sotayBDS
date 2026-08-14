@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../../models/area.dart';
 import '../../models/contact.dart';
+import '../../models/geo_point.dart';
 import '../../models/property.dart';
 import '../../models/property_document.dart';
 import '../../models/property_photo.dart';
@@ -515,6 +516,14 @@ class SqliteAppRepository implements AppRepository {
     final resolvedTagIds = tagIds
         .where(tagById.containsKey)
         .toList(growable: false);
+    final latitude = (row['latitude'] as num?)?.toDouble();
+    final longitude = (row['longitude'] as num?)?.toDouble();
+    final fallbackPosition = latitude == null || longitude == null
+        ? null
+        : GeoPoint(
+            latitude: latitude,
+            longitude: longitude,
+          ).toLegacyNormalized();
     return Property(
       id: row['id']! as String,
       title: row['title']! as String,
@@ -533,8 +542,10 @@ class SqliteAppRepository implements AppRepository {
           .toList(growable: false),
       notes: row['notes']! as String,
       surveyDate: _date(row['survey_date']),
-      latitude: (row['latitude'] as num?)?.toDouble(),
-      longitude: (row['longitude'] as num?)?.toDouble(),
+      latitude: latitude,
+      longitude: longitude,
+      mapX: fallbackPosition?.x ?? 0.5,
+      mapY: fallbackPosition?.y ?? 0.5,
       createdAt: _date(row['created_at'])!,
       updatedAt: _date(row['updated_at'])!,
       deletedAt: _date(row['deleted_at']),
