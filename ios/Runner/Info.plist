@@ -34,6 +34,14 @@
 	<string>PropNote dùng vị trí hiện tại để đặt ghim và hiển thị bất động sản gần bạn.</string>
 	<key>GMSApiKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>PropNote cần microphone để nhập tên và ghi chú bằng giọng nói.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PropNote chuyển giọng nói tiếng Việt thành nội dung bạn nhập.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

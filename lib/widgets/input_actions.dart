@@ -1,10 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../theme/app_colors.dart';
 
-/// Bottom sheet chọn nguồn ảnh — mock, không gọi camera/thư viện thật.
-/// Trả về 'camera', 'gallery', hoặc null nếu huỷ.
 Future<String?> showImageSourceActionSheet(
   BuildContext context, {
   String title = 'Thêm ảnh',
@@ -59,24 +58,18 @@ Future<String?> showImageSourceActionSheet(
   );
 }
 
-/// Mock ghi âm giọng nói — hiện overlay "Đang nghe..." trong chốc lát rồi
-/// trả về [demoText] để chèn vào field. Không tích hợp speech-to-text thật.
-Future<String?> showVoiceInputMock(
-  BuildContext context, {
-  required String demoText,
-}) {
+Future<String?> showVoiceInput(BuildContext context) {
   return showModalBottomSheet<String>(
     context: context,
     backgroundColor: Colors.transparent,
     isDismissible: true,
-    builder: (context) => _VoiceInputSheet(demoText: demoText),
+    isScrollControlled: true,
+    builder: (_) => const _VoiceInputSheet(),
   );
 }
 
 class _VoiceInputSheet extends StatefulWidget {
-  final String demoText;
-
-  const _VoiceInputSheet({required this.demoText});
+  const _VoiceInputSheet();
 
   @override
   State<_VoiceInputSheet> createState() => _VoiceInputSheetState();
@@ -84,21 +77,81 @@ class _VoiceInputSheet extends StatefulWidget {
 
 class _VoiceInputSheetState extends State<_VoiceInputSheet>
     with SingleTickerProviderStateMixin {
+  final SpeechToText _speech = SpeechToText();
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
   )..repeat(reverse: true);
 
+  String _words = '';
+  String _status = 'Đang chuẩn bị nhận giọng nói...';
+  bool _available = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1100), () {
-      if (mounted) Navigator.pop(context, widget.demoText);
-    });
+    _start();
+  }
+
+  Future<void> _start() async {
+    try {
+      final available = await _speech.initialize(
+        onError: (error) {
+          if (mounted) {
+            setState(() => _status = 'Không thể nhận giọng nói');
+          }
+        },
+        onStatus: (status) {
+          if (!mounted) return;
+          if (status == 'notListening' && _words.isNotEmpty) {
+            setState(() => _status = 'Đã nhận xong');
+          }
+        },
+      );
+      if (!mounted) return;
+      if (!available) {
+        setState(() => _status = 'Thiết bị không hỗ trợ nhận giọng nói');
+        return;
+      }
+      final locales = await _speech.locales();
+      final vietnamese = locales
+          .where((locale) => locale.localeId.toLowerCase().startsWith('vi'))
+          .firstOrNull;
+      setState(() {
+        _available = true;
+        _status = 'Đang nghe...';
+      });
+      await _speech.listen(
+        onResult: (result) {
+          if (!mounted) return;
+          setState(() {
+            _words = result.recognizedWords;
+            _status = result.finalResult ? 'Đã nhận xong' : 'Đang nghe...';
+          });
+        },
+        listenOptions: SpeechListenOptions(
+          localeId: vietnamese?.localeId,
+          listenFor: const Duration(minutes: 1),
+          pauseFor: const Duration(seconds: 4),
+          partialResults: true,
+          cancelOnError: true,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _status = 'Không thể truy cập microphone');
+      }
+    }
+  }
+
+  Future<void> _finish() async {
+    await _speech.stop();
+    if (mounted) Navigator.pop(context, _words.trim().nullIfEmpty);
   }
 
   @override
   void dispose() {
+    _speech.cancel();
     _pulse.dispose();
     super.dispose();
   }
@@ -107,9 +160,14 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          24 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 28),
+          padding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
@@ -120,7 +178,7 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
               AnimatedBuilder(
                 animation: _pulse,
                 builder: (context, child) {
-                  final scale = 1.0 + _pulse.value * 0.18;
+                  final scale = _available ? 1.0 + _pulse.value * 0.18 : 1.0;
                   return Stack(
                     alignment: Alignment.center,
                     children: [
@@ -154,21 +212,43 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Đang nghe...',
-                style: TextStyle(
+              Text(
+                _status,
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Nói nội dung bạn muốn nhập (demo)',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
+              if (_words.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _words,
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                 ),
+              ],
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        _speech.cancel();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Huỷ'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _words.trim().isEmpty ? null : _finish,
+                      child: const Text('Dùng nội dung'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -176,4 +256,8 @@ class _VoiceInputSheetState extends State<_VoiceInputSheet>
       ),
     );
   }
+}
+
+extension on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
 }

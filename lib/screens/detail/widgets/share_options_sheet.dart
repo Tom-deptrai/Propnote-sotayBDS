@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../data/services/app_runtime.dart';
 import '../../../models/property.dart';
 import '../../../theme/app_colors.dart';
 import '../../../utils/formatters.dart';
@@ -37,13 +39,16 @@ Future<void> showShareOptionsSheet(
   BuildContext context, {
   required Property property,
   required String areaName,
-}) {
-  return showModalBottomSheet(
+}) async {
+  final selected = await showModalBottomSheet<Map<String, bool>>(
     context: context,
     isScrollControlled: true,
     builder: (context) =>
         _ShareOptionsSheet(property: property, areaName: areaName),
   );
+  if (selected != null && context.mounted) {
+    _showPreview(context, property, areaName, selected);
+  }
 }
 
 class _ShareOptionsSheet extends StatefulWidget {
@@ -62,8 +67,7 @@ class _ShareOptionsSheetState extends State<_ShareOptionsSheet> {
   };
 
   void _continue() {
-    Navigator.pop(context);
-    _showPreview(context, widget.property, widget.areaName, _selected);
+    Navigator.pop(context, Map<String, bool>.of(_selected));
   }
 
   @override
@@ -158,7 +162,10 @@ void _showPreview(
 ) {
   final lines = <String>[];
   if (selected['photos'] == true) {
-    lines.add('📷 Kèm ${property.photoSeeds.length} ảnh BĐS');
+    final photoCount = property.photos.isNotEmpty
+        ? property.photos.length
+        : property.photoSeeds.length;
+    lines.add('📷 Kèm $photoCount ảnh BĐS');
   }
   if (selected['price'] == true) {
     lines.add('Giá: ${formatPriceShort(property.price)}');
@@ -176,13 +183,20 @@ void _showPreview(
   if (selected['notes'] == true && property.notes.isNotEmpty) {
     lines.add('Ghi chú: ${property.notes}');
   }
-  if (selected['exactLocation'] == true) {
+  if (selected['exactLocation'] == true && property.location != null) {
+    final location = property.location!;
     lines.add(
-      'Vị trí chính xác: ${property.mapX.toStringAsFixed(4)}, ${property.mapY.toStringAsFixed(4)}',
+      'Vị trí chính xác: '
+      '${location.latitude.toStringAsFixed(6)}, '
+      '${location.longitude.toStringAsFixed(6)}',
     );
   }
-  if (selected['documents'] == true && property.documentSeeds.isNotEmpty) {
-    lines.add('Tài liệu: ${property.documentSeeds.length} tệp đính kèm');
+  if (selected['documents'] == true &&
+      (property.documents.isNotEmpty || property.documentSeeds.isNotEmpty)) {
+    final documentCount = property.documents.isNotEmpty
+        ? property.documents.length
+        : property.documentSeeds.length;
+    lines.add('Tài liệu: $documentCount tệp đính kèm');
   }
   if (selected['contacts'] == true && property.contacts.isNotEmpty) {
     for (final c in property.contacts) {
@@ -208,11 +222,33 @@ void _showPreview(
           child: const Text('Đóng'),
         ),
         ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Đã chia sẻ (demo)')));
+          onPressed: () async {
+            final runtime = context.read<AppRuntime?>();
+            if (runtime == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Không thể mở chia sẻ lúc này')),
+              );
+              return;
+            }
+            final renderBox = context.findRenderObject() as RenderBox?;
+            final origin = renderBox == null
+                ? null
+                : renderBox.localToGlobal(Offset.zero) & renderBox.size;
+            try {
+              await runtime.propertyShareService.share(
+                property: property,
+                areaName: areaName,
+                selected: selected,
+                sharePositionOrigin: origin,
+              );
+              if (context.mounted) Navigator.pop(context);
+            } catch (_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Không thể chia sẻ')),
+                );
+              }
+            }
           },
           child: const Text('Chia sẻ'),
         ),

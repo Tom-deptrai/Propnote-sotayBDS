@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../data/services/app_runtime.dart';
 import '../../../models/property.dart';
 import '../../../theme/app_colors.dart';
 import '../../../utils/formatters.dart';
+import '../../../utils/app_messenger.dart';
 import '../../../widgets/media_path_scope.dart';
 import '../../../widgets/property_photo.dart';
 import '../../../widgets/status_badge.dart';
@@ -115,11 +118,18 @@ class _PropertyPreviewSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Mở chỉ đường (demo)')),
-                      );
-                    },
+                    onPressed: property.location == null
+                        ? null
+                        : () async {
+                            try {
+                              await context
+                                  .read<AppRuntime?>()
+                                  ?.platformActions
+                                  .openDirections(property.location!);
+                            } catch (_) {
+                              showAppSnackBar('Không thể mở chỉ đường');
+                            }
+                          },
                     icon: const Icon(Icons.directions_rounded, size: 20),
                     label: const Text('Chỉ đường'),
                   ),

@@ -19,9 +19,9 @@ import '../../utils/app_messenger.dart';
 import '../../utils/formatters.dart';
 import '../../utils/vn_number_formatter.dart';
 import '../../widgets/area_picker_sheet.dart';
+import '../../widgets/input_actions.dart';
 import '../../widgets/manage_options_sheet.dart';
 import '../../widgets/mini_map_preview.dart';
-import '../../widgets/mock_actions.dart';
 import '../../widgets/number_stepper.dart';
 import 'widgets/contacts_editor.dart';
 import 'widgets/document_picker_grid.dart';
@@ -221,10 +221,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   }
 
   Future<void> _voiceInputTitle() async {
-    final text = await showVoiceInputMock(
-      context,
-      demoText: 'Nhà phố Nguyễn Trãi, Thanh Xuân',
-    );
+    final text = await showVoiceInput(context);
     if (text == null || !mounted) return;
     final current = _titleController.text.trim();
     _titleController.text = current.isEmpty ? text : '$current $text';
@@ -234,10 +231,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   }
 
   Future<void> _voiceInputNotes() async {
-    final text = await showVoiceInputMock(
-      context,
-      demoText: 'Nhà hướng Đông Nam, gần trường học, an ninh khu vực tốt.',
-    );
+    final text = await showVoiceInput(context);
     if (text == null || !mounted) return;
     final current = _notesController.text.trim();
     _notesController.text = current.isEmpty ? text : '$current $text';
@@ -396,6 +390,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     final now = DateTime.now();
     setState(() => _saving = true);
     MediaCommit? mediaCommit;
+    var propertyPersisted = false;
     var savedPhotos = _photos;
     var savedDocuments = _documents;
     try {
@@ -442,6 +437,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       } else {
         await state.addProperty(property);
       }
+      propertyPersisted = true;
       final removedPaths = <String>[
         for (final photo in existing?.photos ?? const <PropertyPhoto>[])
           if (!savedPhotos.any((current) => current.id == photo.id)) ...[
@@ -457,13 +453,17 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
               document.thumbnailRelativePath!,
           ],
       ];
-      await _mediaStorage?.deletePaths(removedPaths);
+      try {
+        await _mediaStorage?.deletePaths(removedPaths);
+      } catch (error, stackTrace) {
+        debugPrint('Không thể dọn media cũ: $error\n$stackTrace');
+      }
       _saveCompleted = true;
       if (!mounted) return;
       Navigator.pop(context);
       showAppSnackBar(_isEditing ? 'Đã lưu thay đổi' : 'Đã lưu bất động sản');
     } catch (_) {
-      await mediaCommit?.rollback();
+      if (!propertyPersisted) await mediaCommit?.rollback();
       if (mounted) showAppSnackBar('Không thể lưu bất động sản');
     } finally {
       if (mounted) setState(() => _saving = false);

@@ -6,8 +6,8 @@ import '../../../data/services/app_runtime.dart';
 import '../../../models/property_document.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/document_photo.dart';
+import '../../../widgets/input_actions.dart';
 import '../../../widgets/media_path_scope.dart';
-import '../../../widgets/mock_actions.dart';
 
 class DocumentPickerGrid extends StatelessWidget {
   final String propertyId;

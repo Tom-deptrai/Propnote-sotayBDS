@@ -14,12 +14,13 @@ void main() {
   sqfliteFfiInit();
 
   late Directory temporary;
+  late AppDirectories directories;
   late AppDatabase database;
   late SqliteAppRepository repository;
 
   setUp(() async {
     temporary = await Directory.systemTemp.createTemp('propnote_db_test_');
-    final directories = await AppDirectories.create(rootPath: temporary.path);
+    directories = await AppDirectories.create(rootPath: temporary.path);
     database = AppDatabase(
       directories: directories,
       factory: databaseFactoryFfi,
@@ -161,5 +162,35 @@ void main() {
       () => repository.deletePropertyType(type.id),
       throwsA(isA<DatabaseException>()),
     );
+  });
+
+  test('migrates a v1 database forward without dropping user data', () async {
+    final legacy = await databaseFactoryFfi.openDatabase(
+      directories.databasePath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await DatabaseSchema.create(db);
+          await db.execute('DROP INDEX idx_properties_updated_at');
+        },
+      ),
+    );
+    await legacy.insert('app_settings', {
+      'key': 'migration_sentinel',
+      'value': 'preserved',
+      'updated_at': DateTime(2026).millisecondsSinceEpoch,
+    });
+    await legacy.close();
+
+    final upgraded = await database.open();
+    final indexes = await upgraded.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'index'",
+    );
+    expect(await upgraded.getVersion(), DatabaseSchema.version);
+    expect(
+      indexes.map((row) => row['name']),
+      contains('idx_properties_updated_at'),
+    );
+    expect(await repository.readSetting('migration_sentinel'), 'preserved');
   });
 }

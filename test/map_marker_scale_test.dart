@@ -77,6 +77,43 @@ void main() {
     );
   });
 
+  testWidgets('advanced map filter returns persisted price and type choices', (
+    tester,
+  ) async {
+    final state = AppState();
+    MapAdvancedFilter? result;
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: state,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await showAdvancedFilterSheet(context);
+                },
+                child: const Text('Mở'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Mở'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(state.propertyTypes.first));
+    final rangeSlider = tester.widget<RangeSlider>(find.byType(RangeSlider));
+    rangeSlider.onChanged!(const RangeValues(5, 20));
+    await tester.pump();
+    await tester.tap(find.text('Áp dụng'));
+    await tester.pumpAndSettle();
+
+    expect(result?.minimumPriceBillions, 5);
+    expect(result?.maximumPriceBillions, 20);
+    expect(result?.propertyTypes, contains(state.propertyTypes.first));
+  });
+
   test('Google marker cache keys include status, scale, and pixel ratio', () {
     final factory = GoogleMarkerIconFactory();
     final selling = factory.cacheKey(PropertyStatus.selling, 1, 3);

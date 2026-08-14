@@ -47,7 +47,7 @@ extension on _StatusFilter {
   }
 }
 
-const Offset _currentLocation = Offset(0.40, 0.46);
+const Offset _defaultCurrentLocation = Offset(0.40, 0.46);
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -71,10 +71,12 @@ class _MapScreenState extends State<MapScreen>
   final TextEditingController _searchController = TextEditingController();
 
   _StatusFilter _filter = _StatusFilter.all;
+  MapAdvancedFilter _advancedFilter = const MapAdvancedFilter();
   String _query = '';
   Size _viewportSize = Size.zero;
   GoogleMapController? _googleController;
   GeoPoint? _currentGeoLocation;
+  Offset _currentCanvasLocation = _defaultCurrentLocation;
   Map<PropertyStatus, BitmapDescriptor> _googleMarkerIcons = {};
   String? _markerIconRequestKey;
 
@@ -119,22 +121,37 @@ class _MapScreenState extends State<MapScreen>
   }
 
   Future<void> _goToCurrentLocation(AppRuntime? runtime) async {
-    if (runtime?.googleMapsConfigured != true) {
+    if (runtime == null) {
       _centerOn(
         Offset(
-          mapCanvasSize.width * _currentLocation.dx,
-          mapCanvasSize.height * _currentLocation.dy,
+          mapCanvasSize.width * _currentCanvasLocation.dx,
+          mapCanvasSize.height * _currentCanvasLocation.dy,
         ),
         scale: 1.3,
       );
       return;
     }
     try {
-      final point = await runtime!.locationService.currentLocation();
+      final point = await runtime.locationService.currentLocation();
       _currentGeoLocation = point;
-      await _googleController?.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(point.latitude, point.longitude), 16),
-      );
+      if (runtime.googleMapsConfigured) {
+        await _googleController?.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(point.latitude, point.longitude),
+            16,
+          ),
+        );
+      } else {
+        final normalized = point.toLegacyNormalized();
+        _currentCanvasLocation = Offset(normalized.x, normalized.y);
+        _centerOn(
+          Offset(
+            mapCanvasSize.width * _currentCanvasLocation.dx,
+            mapCanvasSize.height * _currentCanvasLocation.dy,
+          ),
+          scale: 1.3,
+        );
+      }
       if (mounted) setState(() {});
     } on LocationFailure catch (error) {
       if (mounted) {
@@ -179,6 +196,19 @@ class _MapScreenState extends State<MapScreen>
 
   bool _matches(Property p, AppState state) {
     if (_filter != _StatusFilter.all && p.status != _filter.status) {
+      return false;
+    }
+    final priceBillions = p.price / 1e9;
+    if (_advancedFilter.minimumPriceBillions > 0 &&
+        priceBillions < _advancedFilter.minimumPriceBillions) {
+      return false;
+    }
+    if (_advancedFilter.maximumPriceBillions < 50 &&
+        priceBillions > _advancedFilter.maximumPriceBillions) {
+      return false;
+    }
+    if (_advancedFilter.propertyTypes.isNotEmpty &&
+        !_advancedFilter.propertyTypes.contains(p.propertyType)) {
       return false;
     }
     if (_query.trim().isEmpty) return true;
@@ -299,11 +329,11 @@ class _MapScreenState extends State<MapScreen>
                                 Positioned(
                                   left:
                                       mapCanvasSize.width *
-                                          _currentLocation.dx -
+                                          _currentCanvasLocation.dx -
                                       32,
                                   top:
                                       mapCanvasSize.height *
-                                          _currentLocation.dy -
+                                          _currentCanvasLocation.dy -
                                       32,
                                   child: const CurrentLocationMarker(),
                                 ),
@@ -344,13 +374,23 @@ class _MapScreenState extends State<MapScreen>
                     hintText: 'Tìm bất động sản, khu vực...',
                     onChanged: (v) => setState(() => _query = v),
                     trailing: InkWell(
-                      onTap: () => showAdvancedFilterSheet(context),
+                      onTap: () async {
+                        final selected = await showAdvancedFilterSheet(
+                          context,
+                          initial: _advancedFilter,
+                        );
+                        if (selected != null && mounted) {
+                          setState(() => _advancedFilter = selected);
+                        }
+                      },
                       customBorder: const CircleBorder(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
                         child: Icon(
                           Icons.tune_rounded,
-                          color: AppColors.navy,
+                          color: _advancedFilter.isDefault
+                              ? AppColors.navy
+                              : AppColors.statusSelling,
                           size: 20,
                         ),
                       ),

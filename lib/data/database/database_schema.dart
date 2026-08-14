@@ -4,9 +4,14 @@ import 'package:sqflite/sqflite.dart';
 ///
 /// Mỗi migration phải tiến về phía trước và không được drop dữ liệu người dùng.
 abstract final class DatabaseSchema {
-  static const int version = 1;
+  static const int version = 2;
   static const int seedVersion = 1;
-  static final Map<int, Future<void> Function(Database)> _migrations = {};
+  static final Map<int, Future<void> Function(Database)> _migrations = {
+    2: (db) => db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_properties_updated_at '
+      'ON properties(updated_at DESC)',
+    ),
+  };
 
   static Future<void> create(Database db) async {
     final batch = db.batch()
@@ -150,6 +155,10 @@ abstract final class DatabaseSchema {
       ..execute(
         'CREATE INDEX idx_properties_created_at '
         'ON properties(created_at DESC)',
+      )
+      ..execute(
+        'CREATE INDEX idx_properties_updated_at '
+        'ON properties(updated_at DESC)',
       )
       ..execute(
         'CREATE INDEX idx_properties_survey_date '

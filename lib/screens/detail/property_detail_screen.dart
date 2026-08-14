@@ -24,6 +24,36 @@ class PropertyDetailScreen extends StatelessWidget {
 
   const PropertyDetailScreen({super.key, required this.propertyId});
 
+  Future<void> _callPhone(BuildContext context, String phone) async {
+    try {
+      await context.read<AppRuntime?>()?.platformActions.callPhone(phone);
+    } catch (_) {
+      showAppSnackBar('Không thể mở trình gọi điện');
+    }
+  }
+
+  Future<void> _openDirections(BuildContext context, GeoPoint location) async {
+    try {
+      await context.read<AppRuntime?>()?.platformActions.openDirections(
+        location,
+      );
+    } catch (_) {
+      showAppSnackBar('Không thể mở chỉ đường');
+    }
+  }
+
+  Future<void> _openDocument(BuildContext context, String relativePath) async {
+    final runtime = context.read<AppRuntime?>();
+    if (runtime == null) return;
+    try {
+      await runtime.platformActions.openFile(
+        runtime.directories.resolve(relativePath),
+      );
+    } catch (_) {
+      showAppSnackBar('Không thể mở tài liệu');
+    }
+  }
+
   Future<void> _changeStatus(BuildContext context, Property property) async {
     final state = context.read<AppState>();
     final result = await showModalBottomSheet<PropertyStatus>(
@@ -336,18 +366,27 @@ class PropertyDetailScreen extends StatelessWidget {
                         final document = property.documents.isEmpty
                             ? null
                             : property.documents[i];
-                        return DocumentPhotoView(
-                          filePath: MediaPathScope.resolve(
-                            context,
-                            document?.thumbnailRelativePath ??
-                                document?.relativePath,
-                          ),
-                          mimeType: document?.mimeType,
-                          seed: property.documentSeeds.isEmpty
-                              ? 0
-                              : property.documentSeeds[i %
-                                    property.documentSeeds.length],
+                        return InkWell(
+                          onTap: document == null
+                              ? null
+                              : () => _openDocument(
+                                  context,
+                                  document.relativePath,
+                                ),
                           borderRadius: BorderRadius.circular(10),
+                          child: DocumentPhotoView(
+                            filePath: MediaPathScope.resolve(
+                              context,
+                              document?.thumbnailRelativePath ??
+                                  document?.relativePath,
+                            ),
+                            mimeType: document?.mimeType,
+                            seed: property.documentSeeds.isEmpty
+                                ? 0
+                                : property.documentSeeds[i %
+                                      property.documentSeeds.length],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         );
                       },
                     ),
@@ -396,8 +435,7 @@ class PropertyDetailScreen extends StatelessWidget {
                               ),
                             ),
                             InkWell(
-                              onTap: () =>
-                                  showAppSnackBar('Gọi ${c.phone} (demo)'),
+                              onTap: () => _callPhone(context, c.phone),
                               customBorder: const CircleBorder(),
                               child: Container(
                                 padding: const EdgeInsets.all(8),
@@ -422,7 +460,7 @@ class PropertyDetailScreen extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () =>
-                              showAppSnackBar('Mở chỉ đường (demo)'),
+                              _openDirections(context, propertyLocation),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,

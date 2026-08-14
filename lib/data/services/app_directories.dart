@@ -53,4 +53,14 @@ class AppDirectories {
       await Directory(path).create(recursive: true);
     }
   }
+
+  Future<int> totalSize() async {
+    var total = 0;
+    final root = Directory(rootPath);
+    if (!await root.exists()) return 0;
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is File) total += await entity.length();
+    }
+    return total;
+  }
 }

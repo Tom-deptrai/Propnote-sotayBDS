@@ -246,46 +246,58 @@ class AppState extends ChangeNotifier {
       throw StateError('Không tìm thấy BĐS trong thùng rác: $propertyId');
     }
     final staged = await mediaStorage?.stagePropertyDeletion(propertyId);
+    PropertyAssetPaths? assets;
     try {
-      final assets = await _persist(
+      assets = await _persist(
         () => _repository?.deletePropertyPermanently(propertyId),
       );
-      _trash.removeAt(index);
-      notifyListeners();
-      final paths = assets?.relativePaths ?? const <String>[];
-      await mediaStorage?.deletePaths(paths);
-      await staged?.complete();
-      return paths;
     } catch (_) {
       await staged?.rollback();
       rethrow;
     }
+    _trash.removeWhere((property) => property.id == propertyId);
+    notifyListeners();
+    final paths = assets?.relativePaths ?? const <String>[];
+    try {
+      await mediaStorage?.deletePaths(paths);
+      await staged?.complete();
+    } catch (error, stackTrace) {
+      debugPrint('Không thể dọn media đã xoá: $error\n$stackTrace');
+    }
+    return paths;
   }
 
   Future<List<PropertyAssetPaths>> emptyTrash() async {
     final staged = <StagedPropertyDeletion>[];
+    List<PropertyAssetPaths>? assets;
     try {
       if (mediaStorage != null) {
         for (final property in _trash) {
           staged.add(await mediaStorage!.stagePropertyDeletion(property.id));
         }
       }
-      final assets = await _persist(() => _repository?.emptyTrash());
-      _trash.clear();
-      notifyListeners();
-      for (final asset in assets ?? const <PropertyAssetPaths>[]) {
-        await mediaStorage?.deletePaths(asset.relativePaths);
-      }
-      for (final deletion in staged) {
-        await deletion.complete();
-      }
-      return assets ?? const [];
+      assets = await _persist(() => _repository?.emptyTrash());
     } catch (_) {
       for (final deletion in staged.reversed) {
         await deletion.rollback();
       }
       rethrow;
     }
+    _trash.clear();
+    notifyListeners();
+    try {
+      for (final asset in assets ?? const <PropertyAssetPaths>[]) {
+        await mediaStorage?.deletePaths(asset.relativePaths);
+      }
+      for (final deletion in staged) {
+        await deletion.complete();
+      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Không thể dọn toàn bộ media trong thùng rác: $error\n$stackTrace',
+      );
+    }
+    return assets ?? const [];
   }
 
   Future<void> addArea(String name) async {

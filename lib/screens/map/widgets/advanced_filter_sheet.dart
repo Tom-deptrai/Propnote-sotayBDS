@@ -4,24 +4,49 @@ import 'package:provider/provider.dart';
 import '../../../state/app_state.dart';
 import '../../../theme/app_colors.dart';
 
-Future<void> showAdvancedFilterSheet(BuildContext context) {
-  return showModalBottomSheet(
+class MapAdvancedFilter {
+  final double minimumPriceBillions;
+  final double maximumPriceBillions;
+  final Set<String> propertyTypes;
+
+  const MapAdvancedFilter({
+    this.minimumPriceBillions = 0,
+    this.maximumPriceBillions = 50,
+    this.propertyTypes = const {},
+  });
+
+  bool get isDefault =>
+      minimumPriceBillions == 0 &&
+      maximumPriceBillions == 50 &&
+      propertyTypes.isEmpty;
+}
+
+Future<MapAdvancedFilter?> showAdvancedFilterSheet(
+  BuildContext context, {
+  MapAdvancedFilter initial = const MapAdvancedFilter(),
+}) {
+  return showModalBottomSheet<MapAdvancedFilter>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => const _AdvancedFilterSheet(),
+    builder: (context) => _AdvancedFilterSheet(initial: initial),
   );
 }
 
 class _AdvancedFilterSheet extends StatefulWidget {
-  const _AdvancedFilterSheet();
+  final MapAdvancedFilter initial;
+
+  const _AdvancedFilterSheet({required this.initial});
 
   @override
   State<_AdvancedFilterSheet> createState() => _AdvancedFilterSheetState();
 }
 
 class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
-  RangeValues _price = const RangeValues(0, 50);
-  final Set<String> _types = {};
+  late RangeValues _price = RangeValues(
+    widget.initial.minimumPriceBillions,
+    widget.initial.maximumPriceBillions,
+  );
+  late final Set<String> _types = Set.of(widget.initial.propertyTypes);
 
   @override
   Widget build(BuildContext context) {
@@ -162,10 +187,12 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Đã áp dụng bộ lọc (demo)'),
+                      Navigator.pop(
+                        context,
+                        MapAdvancedFilter(
+                          minimumPriceBillions: _price.start,
+                          maximumPriceBillions: _price.end,
+                          propertyTypes: Set.unmodifiable(_types),
                         ),
                       );
                     },

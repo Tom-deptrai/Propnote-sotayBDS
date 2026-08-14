@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../data/services/app_runtime.dart';
 import '../../../models/property_photo.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/input_actions.dart';
 import '../../../widgets/media_path_scope.dart';
-import '../../../widgets/mock_actions.dart';
 import '../../../widgets/property_photo.dart';
 
 class PhotoPickerGrid extends StatelessWidget {
