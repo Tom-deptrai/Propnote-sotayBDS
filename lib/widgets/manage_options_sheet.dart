@@ -17,6 +17,7 @@ Future<void> showManageOptionsSheet(
   required void Function(AppState, String) onAdd,
   required void Function(AppState, String, String) onRename,
   required bool Function(AppState, String) onDelete,
+  bool canDeleteWhenUsed = true,
   required void Function(AppState, int, int) onReorder,
 }) {
   return showModalBottomSheet(
@@ -30,6 +31,7 @@ Future<void> showManageOptionsSheet(
       onAdd: onAdd,
       onRename: onRename,
       onDelete: onDelete,
+      canDeleteWhenUsed: canDeleteWhenUsed,
       onReorder: onReorder,
     ),
   );
@@ -43,6 +45,7 @@ class _ManageOptionsSheet extends StatelessWidget {
   final void Function(AppState, String) onAdd;
   final void Function(AppState, String, String) onRename;
   final bool Function(AppState, String) onDelete;
+  final bool canDeleteWhenUsed;
   final void Function(AppState, int, int) onReorder;
 
   const _ManageOptionsSheet({
@@ -53,6 +56,7 @@ class _ManageOptionsSheet extends StatelessWidget {
     required this.onAdd,
     required this.onRename,
     required this.onDelete,
+    required this.canDeleteWhenUsed,
     required this.onReorder,
   });
 
@@ -108,6 +112,12 @@ class _ManageOptionsSheet extends StatelessWidget {
     String name,
   ) async {
     final count = usageCountOf(state, name);
+    if (count > 0 && !canDeleteWhenUsed) {
+      showAppSnackBar(
+        'Không thể xoá "$name" vì đang được dùng ở $count bất động sản',
+      );
+      return;
+    }
     final confirmed = await showConfirmDialog(
       context,
       title: 'Xoá "$name"?',

@@ -209,8 +209,17 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       optionsOf: (s) => s.propertyTypes,
       usageCountOf: (s, name) => s.propertyTypeUsageCount(name),
       onAdd: (s, name) => s.addPropertyType(name),
-      onRename: (s, oldName, newName) => s.renamePropertyType(oldName, newName),
+      onRename: (s, oldName, newName) {
+        s.renamePropertyType(oldName, newName);
+        final renamed =
+            !s.propertyTypes.contains(oldName) &&
+            s.propertyTypes.contains(newName);
+        if (renamed && _propertyType == oldName) {
+          setState(() => _propertyType = newName);
+        }
+      },
       onDelete: (s, name) => s.deletePropertyType(name),
+      canDeleteWhenUsed: false,
       onReorder: (s, oldIndex, newIndex) =>
           s.reorderPropertyTypes(oldIndex, newIndex),
     );
@@ -233,7 +242,18 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       optionsOf: (s) => s.tagOptions,
       usageCountOf: (s, name) => s.tagUsageCount(name),
       onAdd: (s, name) => s.addTagOption(name),
-      onRename: (s, oldName, newName) => s.renameTagOption(oldName, newName),
+      onRename: (s, oldName, newName) {
+        s.renameTagOption(oldName, newName);
+        final renamed =
+            !s.tagOptions.contains(oldName) && s.tagOptions.contains(newName);
+        if (renamed && _tags.contains(oldName)) {
+          setState(() {
+            _tags
+              ..remove(oldName)
+              ..add(newName);
+          });
+        }
+      },
       onDelete: (s, name) {
         s.deleteTagOption(name);
         return true;
@@ -576,7 +596,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
             const _SectionLabel('Ngày khảo sát'),
             _TapField(
               icon: Icons.event_outlined,
-              label: formatDate(_surveyDate ?? DateTime.now()),
+              label: _surveyDate == null
+                  ? 'Chưa khảo sát'
+                  : formatDate(_surveyDate!),
               onTap: _pickDate,
             ),
             const SizedBox(height: 18),

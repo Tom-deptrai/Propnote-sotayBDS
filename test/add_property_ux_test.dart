@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:propnote/models/property.dart';
 import 'package:propnote/screens/add_property/add_property_screen.dart';
 import 'package:propnote/state/app_state.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  Future<AppState> pumpScreen(WidgetTester tester) async {
+  Future<AppState> pumpScreen(WidgetTester tester, {String? existingId}) async {
     final state = AppState();
+    final Property? existing = existingId == null
+        ? null
+        : state.propertyById(existingId);
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
         value: state,
-        child: const MaterialApp(home: AddPropertyScreen()),
+        child: MaterialApp(home: AddPropertyScreen(existing: existing)),
       ),
     );
     await tester.pump();
@@ -119,5 +123,95 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.tagOptions.first, isNot(firstTag));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renamed selected type and tag stay selected when saving', (
+    tester,
+  ) async {
+    final state = await pumpScreen(tester, existingId: 'p3');
+    const oldType = 'Biệt thự';
+    const newType = 'Biệt thự sân vườn';
+    const oldTag = 'Nhà đẹp';
+    const newTag = 'Nhà đẹp mới';
+
+    await tester.scrollUntilVisible(
+      find.text('Loại bất động sản'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    var sectionRow = find
+        .ancestor(
+          of: find.text('Loại bất động sản'),
+          matching: find.byType(Row),
+        )
+        .first;
+    await tester.tap(
+      find.descendant(of: sectionRow, matching: find.text('Quản lý')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byIcon(Icons.edit_outlined).at(state.propertyTypes.indexOf(oldType)),
+    );
+    await tester.pumpAndSettle();
+    var dialogField = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(dialogField, newType);
+    await tester.tap(find.text('Lưu'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Tags'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    sectionRow = find
+        .ancestor(of: find.text('Tags'), matching: find.byType(Row))
+        .first;
+    await tester.tap(
+      find.descendant(of: sectionRow, matching: find.text('Quản lý')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byIcon(Icons.edit_outlined).at(state.tagOptions.indexOf(oldTag)),
+    );
+    await tester.pumpAndSettle();
+    dialogField = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(dialogField, newTag);
+    await tester.tap(find.text('Lưu'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lưu thay đổi'));
+    await tester.pumpAndSettle();
+    final saved = state.propertyById('p3')!;
+    expect(saved.propertyType, newType);
+    expect(saved.tags, contains(newTag));
+    expect(saved.tags, isNot(contains(oldTag)));
+  });
+
+  testWidgets('null survey date is not shown as today in edit form', (
+    tester,
+  ) async {
+    await pumpScreen(tester, existingId: 'p2');
+    await tester.scrollUntilVisible(
+      find.text('Ngày khảo sát'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Chưa khảo sát'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Chưa khảo sát'), findsOneWidget);
   });
 }
