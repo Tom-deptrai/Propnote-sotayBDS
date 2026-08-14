@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/mock_data.dart';
+import '../../data/services/app_runtime.dart';
+import '../../data/services/location_service.dart';
+import '../../models/geo_point.dart';
 import '../../models/property.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
@@ -9,6 +12,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/app_search_bar.dart';
 import 'map_constants.dart';
 import 'widgets/advanced_filter_sheet.dart';
+import 'widgets/google_marker_icon_factory.dart';
 import 'widgets/map_background_painter.dart';
 import 'widgets/map_marker.dart';
 import 'widgets/property_bottom_sheet.dart';
@@ -54,14 +58,25 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen>
     with SingleTickerProviderStateMixin {
+  static const GeoPoint _hanoi = GeoPoint(
+    latitude: 21.0285,
+    longitude: 105.8542,
+  );
+
   final TransformationController _transformController =
       TransformationController();
+  final GoogleMarkerIconFactory _googleMarkerFactory =
+      GoogleMarkerIconFactory();
   late final AnimationController _animController;
   final TextEditingController _searchController = TextEditingController();
 
   _StatusFilter _filter = _StatusFilter.all;
   String _query = '';
   Size _viewportSize = Size.zero;
+  GoogleMapController? _googleController;
+  GeoPoint? _currentGeoLocation;
+  Map<PropertyStatus, BitmapDescriptor> _googleMarkerIcons = {};
+  String? _markerIconRequestKey;
 
   @override
   void initState() {
@@ -81,9 +96,53 @@ class _MapScreenState extends State<MapScreen>
   @override
   void dispose() {
     _animController.dispose();
+    _googleController?.dispose();
     _transformController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _loadGoogleMarkerIcons(double scale) {
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final key = '${(scale * 10).round()}:${(pixelRatio * 10).round()}';
+    if (_markerIconRequestKey == key) return;
+    _markerIconRequestKey = key;
+    Future.wait([
+      for (final status in PropertyStatus.values)
+        _googleMarkerFactory
+            .iconFor(status: status, scale: scale, devicePixelRatio: pixelRatio)
+            .then((icon) => MapEntry(status, icon)),
+    ]).then((entries) {
+      if (!mounted || _markerIconRequestKey != key) return;
+      setState(() => _googleMarkerIcons = Map.fromEntries(entries));
+    });
+  }
+
+  Future<void> _goToCurrentLocation(AppRuntime? runtime) async {
+    if (runtime?.googleMapsConfigured != true) {
+      _centerOn(
+        Offset(
+          mapCanvasSize.width * _currentLocation.dx,
+          mapCanvasSize.height * _currentLocation.dy,
+        ),
+        scale: 1.3,
+      );
+      return;
+    }
+    try {
+      final point = await runtime!.locationService.currentLocation();
+      _currentGeoLocation = point;
+      await _googleController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(point.latitude, point.longitude), 16),
+      );
+      if (mounted) setState(() {});
+    } on LocationFailure catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+      }
+    }
   }
 
   void _centerOn(Offset canvasPoint, {double scale = 1.4}) {
@@ -127,99 +186,152 @@ class _MapScreenState extends State<MapScreen>
     final area = state.areaName(p.areaId).toLowerCase();
     return p.title.toLowerCase().contains(q) ||
         p.address.toLowerCase().contains(q) ||
-        area.contains(q);
+        area.contains(q) ||
+        p.propertyType.toLowerCase().contains(q) ||
+        p.notes.toLowerCase().contains(q) ||
+        p.tags.any((tag) => tag.toLowerCase().contains(q));
+  }
+
+  Set<Marker> _buildGoogleMarkers(
+    BuildContext context,
+    List<Property> properties,
+    AppState state,
+  ) {
+    final markers = <Marker>{};
+    for (final property in properties) {
+      final location = property.location;
+      if (location == null) continue;
+      markers.add(
+        Marker(
+          markerId: MarkerId(property.id),
+          position: LatLng(location.latitude, location.longitude),
+          icon:
+              _googleMarkerIcons[property.status] ??
+              BitmapDescriptor.defaultMarker,
+          onTap: () => showPropertyPreviewSheet(
+            context,
+            property: property,
+            areaName: state.areaName(property.areaId),
+          ),
+        ),
+      );
+    }
+    final current = _currentGeoLocation;
+    if (current != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('current-location'),
+          position: LatLng(current.latitude, current.longitude),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          zIndexInt: 1000,
+        ),
+      );
+    }
+    return markers;
   }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final runtime = context.read<AppRuntime?>();
+    final useGoogleMaps = runtime?.googleMapsConfigured == true;
     final visibleProperties = state.properties
         .where((p) => _matches(p, state))
         .toList();
     final markerScale = state.markerScale;
     final propertyHalf = PropertyMarker.hitBoxFor(markerScale) / 2;
+    if (useGoogleMaps) _loadGoogleMarkerIcons(markerScale);
+    final initialLocation =
+        visibleProperties
+            .map((property) => property.location)
+            .nonNulls
+            .firstOrNull ??
+        _hanoi;
 
     return Scaffold(
       backgroundColor: AppColors.mapLand,
       body: Stack(
         children: [
           Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                _viewportSize = constraints.biggest;
-                return ClipRect(
-                  child: InteractiveViewer(
-                    transformationController: _transformController,
-                    constrained: false,
-                    minScale: 0.6,
-                    maxScale: 2.6,
-                    boundaryMargin: const EdgeInsets.all(400),
-                    child: SizedBox(
-                      width: mapCanvasSize.width,
-                      height: mapCanvasSize.height,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: const MapBackgroundPainter(),
-                            ),
-                          ),
-                          Positioned(
-                            left:
-                                mapCanvasSize.width * _currentLocation.dx - 32,
-                            top:
-                                mapCanvasSize.height * _currentLocation.dy - 32,
-                            child: const CurrentLocationMarker(),
-                          ),
-                          for (final cluster in mockMapClusters)
-                            Positioned(
-                              left:
-                                  mapCanvasSize.width * cluster.x -
-                                  MapClusterMarker.sizeFor(
-                                        cluster.count,
-                                        markerScale,
-                                      ) /
-                                      2,
-                              top:
-                                  mapCanvasSize.height * cluster.y -
-                                  MapClusterMarker.sizeFor(
-                                        cluster.count,
-                                        markerScale,
-                                      ) /
-                                      2,
-                              child: MapClusterMarker(
-                                count: cluster.count,
-                                scale: markerScale,
-                                onTap: () => _centerOn(
-                                  Offset(
-                                    mapCanvasSize.width * cluster.x,
-                                    mapCanvasSize.height * cluster.y,
-                                  ),
-                                  scale: 2.0,
-                                ),
-                              ),
-                            ),
-                          for (final p in visibleProperties)
-                            Positioned(
-                              left: mapCanvasSize.width * p.mapX - propertyHalf,
-                              top: mapCanvasSize.height * p.mapY - propertyHalf,
-                              child: PropertyMarker(
-                                status: p.status,
-                                scale: markerScale,
-                                onTap: () => showPropertyPreviewSheet(
-                                  context,
-                                  property: p,
-                                  areaName: state.areaName(p.areaId),
-                                ),
-                              ),
-                            ),
-                        ],
+            child: useGoogleMaps
+                ? GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(
+                        initialLocation.latitude,
+                        initialLocation.longitude,
                       ),
+                      zoom: 12.5,
                     ),
+                    onMapCreated: (controller) =>
+                        _googleController = controller,
+                    markers: _buildGoogleMarkers(
+                      context,
+                      visibleProperties,
+                      state,
+                    ),
+                    mapToolbarEnabled: false,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    compassEnabled: true,
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      _viewportSize = constraints.biggest;
+                      return ClipRect(
+                        child: InteractiveViewer(
+                          transformationController: _transformController,
+                          constrained: false,
+                          minScale: 0.6,
+                          maxScale: 2.6,
+                          boundaryMargin: const EdgeInsets.all(400),
+                          child: SizedBox(
+                            width: mapCanvasSize.width,
+                            height: mapCanvasSize.height,
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: CustomPaint(
+                                    painter: const MapBackgroundPainter(),
+                                  ),
+                                ),
+                                Positioned(
+                                  left:
+                                      mapCanvasSize.width *
+                                          _currentLocation.dx -
+                                      32,
+                                  top:
+                                      mapCanvasSize.height *
+                                          _currentLocation.dy -
+                                      32,
+                                  child: const CurrentLocationMarker(),
+                                ),
+                                for (final p in visibleProperties)
+                                  Positioned(
+                                    left:
+                                        mapCanvasSize.width * p.mapX -
+                                        propertyHalf,
+                                    top:
+                                        mapCanvasSize.height * p.mapY -
+                                        propertyHalf,
+                                    child: PropertyMarker(
+                                      status: p.status,
+                                      scale: markerScale,
+                                      onTap: () => showPropertyPreviewSheet(
+                                        context,
+                                        property: p,
+                                        areaName: state.areaName(p.areaId),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           SafeArea(
             bottom: false,
@@ -258,15 +370,33 @@ class _MapScreenState extends State<MapScreen>
             bottom: 150,
             child: _RoundIconButton(
               icon: Icons.my_location_rounded,
-              onTap: () => _centerOn(
-                Offset(
-                  mapCanvasSize.width * _currentLocation.dx,
-                  mapCanvasSize.height * _currentLocation.dy,
-                ),
-                scale: 1.3,
-              ),
+              onTap: () => _goToCurrentLocation(runtime),
             ),
           ),
+          if (!useGoogleMaps)
+            Positioned(
+              left: 16,
+              right: 72,
+              bottom: 150,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Text(
+                      'Chưa cấu hình Google Maps — đang dùng bản đồ dự phòng',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

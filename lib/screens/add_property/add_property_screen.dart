@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/services/app_runtime.dart';
 import '../../data/services/media_storage.dart';
 import '../../models/contact.dart';
+import '../../models/geo_point.dart';
 import '../../models/property.dart';
 import '../../models/property_document.dart';
 import '../../models/property_photo.dart';
@@ -28,7 +29,10 @@ import 'widgets/location_picker_screen.dart';
 import 'widgets/photo_picker_grid.dart';
 import 'widgets/status_selector.dart';
 
-const Offset _mockCurrentLocation = Offset(0.40, 0.46);
+const GeoPoint _defaultLocation = GeoPoint(
+  latitude: 21.0285,
+  longitude: 105.8542,
+);
 
 class AddPropertyScreen extends StatefulWidget {
   final Property? existing;
@@ -59,8 +63,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   List<Contact> _contacts = [];
   PropertyStatus _status = PropertyStatus.selling;
   String? _areaId;
-  Offset _location = _mockCurrentLocation;
+  GeoPoint _location = _defaultLocation;
   bool _locationTouched = false;
+  bool _locating = false;
   String? _propertyType;
   int? _floors;
   final Set<String> _tags = {};
@@ -101,8 +106,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       _contacts = List.of(p.contacts);
       _status = p.status;
       _areaId = p.areaId;
-      _location = Offset(p.mapX, p.mapY);
-      _locationTouched = true;
+      _location = p.location ?? GeoPoint.fromLegacyNormalized(p.mapX, p.mapY);
+      _locationTouched = p.location != null;
       _propertyType = p.propertyType;
       _floors = p.floors;
       _tags.addAll(p.tags);
@@ -195,12 +200,24 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     }
   }
 
-  void _useCurrentLocation() {
-    setState(() {
-      _location = _mockCurrentLocation;
-      _locationTouched = true;
-    });
-    showAppSnackBar('Đã dùng vị trí hiện tại (demo)');
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    final runtime = context.read<AppRuntime?>();
+    if (runtime == null) return;
+    setState(() => _locating = true);
+    try {
+      final point = await runtime.locationService.currentLocation();
+      if (!mounted) return;
+      setState(() {
+        _location = point;
+        _locationTouched = true;
+      });
+      showAppSnackBar('Đã dùng vị trí hiện tại');
+    } catch (error) {
+      showAppSnackBar(error.toString());
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
   }
 
   Future<void> _voiceInputTitle() async {
@@ -375,6 +392,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     final selectedTagModels = state.tagModels
         .where((tag) => _tags.contains(tag.name))
         .toList();
+    final normalizedLocation = _location.toLegacyNormalized();
     final now = DateTime.now();
     setState(() => _saving = true);
     MediaCommit? mediaCommit;
@@ -409,10 +427,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         surveyDate: _surveyDate,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
-        mapX: _location.dx,
-        mapY: _location.dy,
-        latitude: existing?.latitude,
-        longitude: existing?.longitude,
+        mapX: normalizedLocation.x,
+        mapY: normalizedLocation.y,
+        latitude: _locationTouched ? _location.latitude : null,
+        longitude: _locationTouched ? _location.longitude : null,
         photos: savedPhotos,
         documents: savedDocuments,
         photoSeeds: _photoSeeds,
@@ -517,15 +535,28 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
             ),
             const SizedBox(height: 18),
             const _SectionLabel('Vị trí'),
-            MiniMapPreview(normalizedPosition: _location, onTap: _pickOnMap),
+            MiniMapPreview(
+              location: _location,
+              useGoogleMaps:
+                  context.read<AppRuntime?>()?.googleMapsConfigured == true,
+              onTap: _pickOnMap,
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _useCurrentLocation,
-                    icon: const Icon(Icons.my_location_rounded, size: 18),
-                    label: const Text('Vị trí hiện tại'),
+                    onPressed: _locating ? null : _useCurrentLocation,
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location_rounded, size: 18),
+                    label: Text(
+                      _locating ? 'Đang lấy vị trí...' : 'Vị trí hiện tại',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

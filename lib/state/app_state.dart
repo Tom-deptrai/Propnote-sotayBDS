@@ -5,6 +5,7 @@ import '../data/mock_data.dart';
 import '../data/repositories/app_repository.dart';
 import '../data/services/media_storage.dart';
 import '../models/area.dart';
+import '../models/geo_point.dart';
 import '../models/property.dart';
 import '../models/property_status.dart';
 import '../models/property_tag.dart';
@@ -547,8 +548,15 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Property _hydrateFixtureProperty(Property property) =>
-      _normalizeProperty(property);
+  Property _hydrateFixtureProperty(Property property) {
+    final point = GeoPoint.fromLegacyNormalized(property.mapX, property.mapY);
+    return _normalizeProperty(
+      property.copyWith(
+        latitude: property.latitude ?? point.latitude,
+        longitude: property.longitude ?? point.longitude,
+      ),
+    );
+  }
 
   void _replaceProperties(Property Function(Property) transform) {
     _properties = _properties.map(transform).toList();

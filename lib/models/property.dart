@@ -1,4 +1,5 @@
 import 'contact.dart';
+import 'geo_point.dart';
 import 'property_document.dart';
 import 'property_photo.dart';
 import 'property_status.dart';
@@ -49,6 +50,14 @@ class Property {
 
   /// Liên hệ gắn với bất động sản (chủ nhà, người môi giới khác...).
   final List<Contact> contacts;
+
+  GeoPoint? get location {
+    final lat = latitude;
+    final lng = longitude;
+    if (lat == null || lng == null) return null;
+    final point = GeoPoint(latitude: lat, longitude: lng);
+    return point.isValid ? point : null;
+  }
 
   const Property({
     required this.id,

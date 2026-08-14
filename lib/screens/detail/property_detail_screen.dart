@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/services/app_runtime.dart';
+import '../../models/geo_point.dart';
 import '../../models/property.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
@@ -172,6 +174,9 @@ class PropertyDetailScreen extends StatelessWidget {
         body: const Center(child: Text('Bất động sản không còn tồn tại.')),
       );
     }
+    final propertyLocation =
+        property.location ??
+        GeoPoint.fromLegacyNormalized(property.mapX, property.mapY);
 
     return Scaffold(
       body: CustomScrollView(
@@ -304,7 +309,10 @@ class PropertyDetailScreen extends StatelessWidget {
                   const SizedBox(height: 18),
                   const _SectionTitle('Vị trí'),
                   MiniMapPreview(
-                    normalizedPosition: Offset(property.mapX, property.mapY),
+                    location: propertyLocation,
+                    useGoogleMaps:
+                        context.read<AppRuntime?>()?.googleMapsConfigured ==
+                        true,
                     height: 150,
                     pinColor: property.status.color,
                   ),
