@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,11 +16,11 @@ Future<void> showManageOptionsSheet(
   required String emptyHint,
   required List<String> Function(AppState) optionsOf,
   required int Function(AppState, String) usageCountOf,
-  required void Function(AppState, String) onAdd,
-  required void Function(AppState, String, String) onRename,
-  required bool Function(AppState, String) onDelete,
+  required FutureOr<void> Function(AppState, String) onAdd,
+  required FutureOr<void> Function(AppState, String, String) onRename,
+  required FutureOr<bool> Function(AppState, String) onDelete,
   bool canDeleteWhenUsed = true,
-  required void Function(AppState, int, int) onReorder,
+  required FutureOr<void> Function(AppState, int, int) onReorder,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -42,11 +44,11 @@ class _ManageOptionsSheet extends StatelessWidget {
   final String emptyHint;
   final List<String> Function(AppState) optionsOf;
   final int Function(AppState, String) usageCountOf;
-  final void Function(AppState, String) onAdd;
-  final void Function(AppState, String, String) onRename;
-  final bool Function(AppState, String) onDelete;
+  final FutureOr<void> Function(AppState, String) onAdd;
+  final FutureOr<void> Function(AppState, String, String) onRename;
+  final FutureOr<bool> Function(AppState, String) onDelete;
   final bool canDeleteWhenUsed;
-  final void Function(AppState, int, int) onReorder;
+  final FutureOr<void> Function(AppState, int, int) onReorder;
 
   const _ManageOptionsSheet({
     required this.title,
@@ -79,7 +81,13 @@ class _ManageOptionsSheet extends StatelessWidget {
         ],
       ),
     );
-    if (name != null && name.isNotEmpty) onAdd(state, name);
+    if (name != null && name.isNotEmpty) {
+      try {
+        await onAdd(state, name);
+      } catch (_) {
+        showAppSnackBar('Không thể thêm "$name"');
+      }
+    }
   }
 
   Future<void> _rename(BuildContext context, AppState state, String old) async {
@@ -102,7 +110,11 @@ class _ManageOptionsSheet extends StatelessWidget {
       ),
     );
     if (name != null && name.isNotEmpty && name != old) {
-      onRename(state, old, name);
+      try {
+        await onRename(state, old, name);
+      } catch (_) {
+        showAppSnackBar('Không thể đổi tên "$old"');
+      }
     }
   }
 
@@ -126,9 +138,22 @@ class _ManageOptionsSheet extends StatelessWidget {
           : 'Mục này sẽ bị xoá khỏi danh sách.',
     );
     if (!confirmed) return;
-    final success = onDelete(state, name);
+    bool success;
+    try {
+      success = await onDelete(state, name);
+    } catch (_) {
+      success = false;
+    }
     if (!success && context.mounted) {
       showAppSnackBar('Không thể xoá "$name"');
+    }
+  }
+
+  Future<void> _reorder(AppState state, int oldIndex, int newIndex) async {
+    try {
+      await onReorder(state, oldIndex, newIndex);
+    } catch (_) {
+      showAppSnackBar('Không thể lưu thứ tự mới');
     }
   }
 
@@ -193,7 +218,7 @@ class _ManageOptionsSheet extends StatelessWidget {
                   buildDefaultDragHandles: false,
                   itemCount: options.length,
                   onReorderItem: (oldIndex, newIndex) =>
-                      onReorder(state, oldIndex, newIndex),
+                      unawaited(_reorder(state, oldIndex, newIndex)),
                   itemBuilder: (context, i) {
                     final name = options[i];
                     return Container(

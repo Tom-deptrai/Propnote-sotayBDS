@@ -32,8 +32,12 @@ class TrashScreen extends StatelessWidget {
                   confirmLabel: 'Xoá tất cả',
                 );
                 if (confirmed && context.mounted) {
-                  context.read<AppState>().emptyTrash();
-                  showAppSnackBar('Đã xoá vĩnh viễn tất cả');
+                  try {
+                    await context.read<AppState>().emptyTrash();
+                    showAppSnackBar('Đã xoá vĩnh viễn tất cả');
+                  } catch (_) {
+                    showAppSnackBar('Không thể xoá thùng rác');
+                  }
                 }
               },
               child: const Text('Xoá tất cả'),
@@ -102,9 +106,15 @@ class TrashScreen extends StatelessWidget {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                context.read<AppState>().restoreFromTrash(p.id);
-                                showAppSnackBar('Đã khôi phục "${p.title}"');
+                              onPressed: () async {
+                                try {
+                                  await context
+                                      .read<AppState>()
+                                      .restoreFromTrash(p.id);
+                                  showAppSnackBar('Đã khôi phục "${p.title}"');
+                                } catch (_) {
+                                  showAppSnackBar('Không thể khôi phục');
+                                }
                               },
                               icon: const Icon(Icons.restore_rounded, size: 18),
                               label: const Text('Khôi phục'),
@@ -127,10 +137,14 @@ class TrashScreen extends StatelessWidget {
                                       '"${p.title}" sẽ bị xoá vĩnh viễn và không thể khôi phục.',
                                 );
                                 if (confirmed && context.mounted) {
-                                  context.read<AppState>().deletePermanently(
-                                    p.id,
-                                  );
-                                  showAppSnackBar('Đã xoá vĩnh viễn');
+                                  try {
+                                    await context
+                                        .read<AppState>()
+                                        .deletePermanently(p.id);
+                                    showAppSnackBar('Đã xoá vĩnh viễn');
+                                  } catch (_) {
+                                    showAppSnackBar('Không thể xoá vĩnh viễn');
+                                  }
                                 }
                               },
                               icon: const Icon(

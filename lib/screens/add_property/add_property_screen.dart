@@ -58,6 +58,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   int? _floors;
   final Set<String> _tags = {};
   DateTime? _surveyDate;
+  bool _saving = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -209,8 +210,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       optionsOf: (s) => s.propertyTypes,
       usageCountOf: (s, name) => s.propertyTypeUsageCount(name),
       onAdd: (s, name) => s.addPropertyType(name),
-      onRename: (s, oldName, newName) {
-        s.renamePropertyType(oldName, newName);
+      onRename: (s, oldName, newName) async {
+        await s.renamePropertyType(oldName, newName);
         final renamed =
             !s.propertyTypes.contains(oldName) &&
             s.propertyTypes.contains(newName);
@@ -242,8 +243,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       optionsOf: (s) => s.tagOptions,
       usageCountOf: (s, name) => s.tagUsageCount(name),
       onAdd: (s, name) => s.addTagOption(name),
-      onRename: (s, oldName, newName) {
-        s.renameTagOption(oldName, newName);
+      onRename: (s, oldName, newName) async {
+        await s.renameTagOption(oldName, newName);
         final renamed =
             !s.tagOptions.contains(oldName) && s.tagOptions.contains(newName);
         if (renamed && _tags.contains(oldName)) {
@@ -254,10 +255,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
           });
         }
       },
-      onDelete: (s, name) {
-        s.deleteTagOption(name);
-        return true;
-      },
+      onDelete: (s, name) => s.deleteTagOption(name),
       onReorder: (s, oldIndex, newIndex) =>
           s.reorderTagOptions(oldIndex, newIndex),
     );
@@ -329,44 +327,71 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       final proceed = await _confirmIncompleteFields(missing);
       if (!proceed) return;
     }
-    if (mounted) _performSave();
+    if (mounted) await _performSave();
   }
 
-  void _performSave() {
+  Future<void> _performSave() async {
+    if (_saving) return;
     final state = context.read<AppState>();
+    if (state.areas.isEmpty || state.propertyTypeModels.isEmpty) {
+      showAppSnackBar('Cần ít nhất một khu vực và một loại BĐS');
+      return;
+    }
     final areaId = _areaId ?? state.areas.first.id;
     final existing = widget.existing;
     final propertyType =
         _propertyType ??
         (state.propertyTypes.isNotEmpty ? state.propertyTypes.first : 'Khác');
+    final typeModel = state.propertyTypeModels.firstWhere(
+      (type) => type.name == propertyType,
+    );
+    final selectedTagModels = state.tagModels
+        .where((tag) => _tags.contains(tag.name))
+        .toList();
+    final now = DateTime.now();
     final property = Property(
-      id: existing?.id ?? 'p_${DateTime.now().millisecondsSinceEpoch}',
+      id: existing?.id ?? state.createId(),
       title: _titleController.text.trim(),
       address: _titleController.text.trim(),
       areaId: areaId,
       status: _status,
       price: _priceValue,
       landArea: parseVnNumber(_areaController.text) ?? 0,
+      propertyTypeId: typeModel.id,
       propertyType: propertyType,
       frontage: parseVnNumber(_frontageController.text),
       floors: _floors,
-      tags: _tags.toList(),
+      tagIds: selectedTagModels.map((tag) => tag.id).toList(),
+      tags: selectedTagModels.map((tag) => tag.name).toList(),
       notes: _notesController.text.trim(),
       surveyDate: _surveyDate,
-      createdAt: existing?.createdAt ?? DateTime.now(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
       mapX: _location.dx,
       mapY: _location.dy,
+      latitude: existing?.latitude,
+      longitude: existing?.longitude,
+      photos: existing?.photos ?? const [],
+      documents: existing?.documents ?? const [],
       photoSeeds: _photoSeeds.isEmpty ? const [0] : _photoSeeds,
       documentSeeds: _documentSeeds,
       contacts: _contacts,
     );
-    if (_isEditing) {
-      state.updateProperty(property);
-    } else {
-      state.addProperty(property);
+    setState(() => _saving = true);
+    try {
+      if (_isEditing) {
+        await state.updateProperty(property);
+      } else {
+        await state.addProperty(property);
+      }
+      if (!mounted) return;
+      Navigator.pop(context);
+      showAppSnackBar(_isEditing ? 'Đã lưu thay đổi' : 'Đã lưu bất động sản');
+    } catch (_) {
+      if (mounted) showAppSnackBar('Không thể lưu bất động sản');
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    Navigator.pop(context);
-    showAppSnackBar(_isEditing ? 'Đã lưu thay đổi' : 'Đã lưu bất động sản');
   }
 
   @override
@@ -641,8 +666,12 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: ElevatedButton(
-                onPressed: _validateAndSave,
-                child: Text(_isEditing ? 'Lưu thay đổi' : 'Lưu bất động sản'),
+                onPressed: _saving ? null : _validateAndSave,
+                child: Text(
+                  _saving
+                      ? 'Đang lưu...'
+                      : (_isEditing ? 'Lưu thay đổi' : 'Lưu bất động sản'),
+                ),
               ),
             ),
           ],

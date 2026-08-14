@@ -17,13 +17,13 @@ void main() {
     expect(state.markerScale, AppState.markerScaleDefault);
   });
 
-  test('reorders property types and tags in AppState', () {
+  test('reorders property types and tags in AppState', () async {
     final state = AppState();
     final firstType = state.propertyTypes.first;
     final firstTag = state.tagOptions.first;
 
-    state.reorderPropertyTypes(0, state.propertyTypes.length - 1);
-    state.reorderTagOptions(0, state.tagOptions.length - 1);
+    await state.reorderPropertyTypes(0, state.propertyTypes.length - 1);
+    await state.reorderTagOptions(0, state.tagOptions.length - 1);
 
     expect(state.propertyTypes.last, firstType);
     expect(state.tagOptions.last, firstTag);

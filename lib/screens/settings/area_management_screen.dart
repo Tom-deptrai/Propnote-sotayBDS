@@ -33,8 +33,12 @@ class AreaManagementScreen extends StatelessWidget {
       ),
     );
     if (name != null && name.isNotEmpty && context.mounted) {
-      context.read<AppState>().addArea(name);
-      showAppSnackBar('Đã thêm khu vực "$name"');
+      try {
+        await context.read<AppState>().addArea(name);
+        showAppSnackBar('Đã thêm khu vực "$name"');
+      } catch (_) {
+        showAppSnackBar('Không thể thêm khu vực "$name"');
+      }
     }
   }
 
@@ -62,7 +66,11 @@ class AreaManagementScreen extends StatelessWidget {
       ),
     );
     if (name != null && name.isNotEmpty && context.mounted) {
-      context.read<AppState>().renameArea(id, name);
+      try {
+        await context.read<AppState>().renameArea(id, name);
+      } catch (_) {
+        showAppSnackBar('Không thể đổi tên khu vực');
+      }
     }
   }
 
@@ -82,7 +90,11 @@ class AreaManagementScreen extends StatelessWidget {
       message: '"$name" sẽ bị xoá khỏi danh sách khu vực.',
     );
     if (confirmed && context.mounted) {
-      context.read<AppState>().deleteArea(id);
+      try {
+        await context.read<AppState>().deleteArea(id);
+      } catch (_) {
+        showAppSnackBar('Không thể xoá khu vực "$name"');
+      }
     }
   }
 
@@ -107,7 +119,12 @@ class AreaManagementScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
               itemCount: areas.length,
               onReorderItem: (oldIndex, newIndex) {
-                context.read<AppState>().reorderAreas(oldIndex, newIndex);
+                context
+                    .read<AppState>()
+                    .reorderAreas(oldIndex, newIndex)
+                    .catchError(
+                      (_) => showAppSnackBar('Không thể lưu thứ tự khu vực'),
+                    );
               },
               itemBuilder: (context, i) {
                 final area = areas[i];

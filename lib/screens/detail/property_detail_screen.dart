@@ -66,8 +66,12 @@ class PropertyDetailScreen extends StatelessWidget {
       ),
     );
     if (result != null && result != property.status) {
-      state.changeStatus(property.id, result);
-      showAppSnackBar('Đã đổi trạng thái sang "${result.label}"');
+      try {
+        await state.changeStatus(property.id, result);
+        showAppSnackBar('Đã đổi trạng thái sang "${result.label}"');
+      } catch (_) {
+        showAppSnackBar('Không thể đổi trạng thái');
+      }
     }
   }
 
@@ -78,8 +82,12 @@ class PropertyDetailScreen extends StatelessWidget {
       selectedAreaId: property.areaId,
     );
     if (result != null && result != property.areaId) {
-      state.moveToArea(property.id, result);
-      showAppSnackBar('Đã chuyển khu vực sang "${state.areaName(result)}"');
+      try {
+        await state.moveToArea(property.id, result);
+        showAppSnackBar('Đã chuyển khu vực sang "${state.areaName(result)}"');
+      } catch (_) {
+        showAppSnackBar('Không thể chuyển khu vực');
+      }
     }
   }
 
@@ -92,9 +100,14 @@ class PropertyDetailScreen extends StatelessWidget {
       confirmLabel: 'Xoá',
     );
     if (confirmed && context.mounted) {
-      context.read<AppState>().deleteProperty(property.id);
-      Navigator.pop(context);
-      showAppSnackBar('Đã chuyển vào thùng rác');
+      try {
+        await context.read<AppState>().deleteProperty(property.id);
+        if (!context.mounted) return;
+        Navigator.pop(context);
+        showAppSnackBar('Đã chuyển vào thùng rác');
+      } catch (_) {
+        showAppSnackBar('Không thể chuyển vào thùng rác');
+      }
     }
   }
 
@@ -136,13 +149,13 @@ class PropertyDetailScreen extends StatelessWidget {
     if (!context.mounted) return;
     switch (action) {
       case 'status':
-        _changeStatus(context, property);
+        await _changeStatus(context, property);
         break;
       case 'area':
-        _changeArea(context, property);
+        await _changeArea(context, property);
         break;
       case 'delete':
-        _delete(context, property);
+        await _delete(context, property);
         break;
     }
   }
