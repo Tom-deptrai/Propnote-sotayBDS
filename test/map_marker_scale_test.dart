@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:propnote/models/property_status.dart';
 import 'package:propnote/screens/map/widgets/advanced_filter_sheet.dart';
-import 'package:propnote/screens/map/widgets/google_marker_icon_factory.dart';
 import 'package:propnote/screens/map/widgets/map_marker.dart';
+import 'package:propnote/screens/map/widgets/property_map_marker_icons.dart';
 import 'package:propnote/state/app_state.dart';
 import 'package:provider/provider.dart';
 
@@ -114,8 +114,8 @@ void main() {
     expect(result?.propertyTypes, contains(state.propertyTypes.first));
   });
 
-  test('Google marker cache keys include status, scale, and pixel ratio', () {
-    final factory = GoogleMarkerIconFactory();
+  test('Property marker cache keys include status, scale, and pixel ratio', () {
+    final factory = PropertyMapMarkerIcons();
     final selling = factory.cacheKey(PropertyStatus.selling, 1, 3);
 
     expect(selling, isNot(factory.cacheKey(PropertyStatus.unsurveyed, 1, 3)));

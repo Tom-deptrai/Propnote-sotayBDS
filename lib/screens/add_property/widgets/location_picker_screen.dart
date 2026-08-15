@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/services/app_runtime.dart';
 import '../../../data/services/location_service.dart';
 import '../../../models/geo_point.dart';
 import '../../../theme/app_colors.dart';
-import '../../map/map_constants.dart';
-import '../../map/widgets/map_background_painter.dart';
+import '../../map/widgets/property_map_view.dart';
 
 Future<GeoPoint?> showLocationPickerScreen(
   BuildContext context, {
@@ -34,68 +32,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     longitude: 105.8542,
   );
 
-  final TransformationController _fallbackController =
-      TransformationController();
-  GoogleMapController? _googleController;
-  Size _viewportSize = Size.zero;
+  PropertyMapController? _mapController;
   late GeoPoint _target = widget.initial ?? _hanoi;
   bool _locating = false;
 
-  bool get _useGoogleMaps =>
-      context.read<AppRuntime?>()?.googleMapsConfigured == true;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _useGoogleMaps || _viewportSize == Size.zero) return;
-      final normalized = _target.toLegacyNormalized();
-      const scale = 1.3;
-      final tx =
-          _viewportSize.width / 2 - mapCanvasSize.width * normalized.x * scale;
-      final ty =
-          _viewportSize.height / 2 -
-          mapCanvasSize.height * normalized.y * scale;
-      _fallbackController.value = Matrix4(
-        scale,
-        0,
-        0,
-        0,
-        0,
-        scale,
-        0,
-        0,
-        0,
-        0,
-        1,
-        0,
-        tx,
-        ty,
-        0,
-        1,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _googleController?.dispose();
-    _fallbackController.dispose();
-    super.dispose();
-  }
-
-  void _confirm() {
-    if (_useGoogleMaps) {
-      Navigator.pop(context, _target);
-      return;
-    }
-    final inverse = Matrix4.tryInvert(_fallbackController.value);
-    if (inverse == null) return;
-    final center = Offset(_viewportSize.width / 2, _viewportSize.height / 2);
-    final canvasPoint = MatrixUtils.transformPoint(inverse, center);
-    final x = (canvasPoint.dx / mapCanvasSize.width).clamp(0.02, 0.98);
-    final y = (canvasPoint.dy / mapCanvasSize.height).clamp(0.02, 0.98);
-    Navigator.pop(context, GeoPoint.fromLegacyNormalized(x, y));
+  Future<void> _confirm() async {
+    Navigator.pop(context, _target);
   }
 
   Future<void> _useCurrentLocation() async {
@@ -106,41 +48,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     try {
       final point = await runtime.locationService.currentLocation();
       _target = point;
-      if (_useGoogleMaps) {
-        await _googleController?.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(point.latitude, point.longitude),
-            17,
-          ),
-        );
-      } else {
-        final normalized = point.toLegacyNormalized();
-        const scale = 1.3;
-        final tx =
-            _viewportSize.width / 2 -
-            mapCanvasSize.width * normalized.x * scale;
-        final ty =
-            _viewportSize.height / 2 -
-            mapCanvasSize.height * normalized.y * scale;
-        _fallbackController.value = Matrix4(
-          scale,
-          0,
-          0,
-          0,
-          0,
-          scale,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-          tx,
-          ty,
-          0,
-          1,
-        );
-      }
+      await _mapController?.animateTo(point, zoom: 17);
     } on LocationFailure catch (error) {
       if (mounted) {
         final canOpenSettings =
@@ -166,7 +74,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final useGoogleMaps = _useGoogleMaps;
     return Scaffold(
       backgroundColor: AppColors.mapLand,
       appBar: AppBar(
@@ -176,46 +83,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: useGoogleMaps
-                ? GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(_target.latitude, _target.longitude),
-                      zoom: 16,
-                    ),
-                    onMapCreated: (controller) =>
-                        _googleController = controller,
-                    onCameraMove: (position) {
-                      _target = GeoPoint(
-                        latitude: position.target.latitude,
-                        longitude: position.target.longitude,
-                      );
-                    },
-                    myLocationButtonEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: true,
-                    zoomControlsEnabled: false,
-                  )
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      _viewportSize = constraints.biggest;
-                      return ClipRect(
-                        child: InteractiveViewer(
-                          transformationController: _fallbackController,
-                          constrained: false,
-                          minScale: 0.6,
-                          maxScale: 2.6,
-                          boundaryMargin: const EdgeInsets.all(400),
-                          child: SizedBox(
-                            width: mapCanvasSize.width,
-                            height: mapCanvasSize.height,
-                            child: const CustomPaint(
-                              painter: MapBackgroundPainter(),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            child: PropertyMapView(
+              initialTarget: _target,
+              initialZoom: 16,
+              onMapReady: (controller) => _mapController = controller,
+              onCameraMove: (target) => _target = target,
+            ),
           ),
           const IgnorePointer(
             child: Center(
@@ -265,11 +138,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     ),
                   ],
                 ),
-                child: Text(
-                  useGoogleMaps
-                      ? 'Kéo bản đồ để đặt ghim vào đúng vị trí'
-                      : 'Chưa có API key Google Maps — đang dùng bản đồ dự phòng',
-                  style: const TextStyle(
+                child: const Text(
+                  'Kéo bản đồ để đặt ghim vào đúng vị trí',
+                  style: TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
                   ),

@@ -390,11 +390,8 @@ class PropertyDetailScreen extends StatelessWidget {
                   const _SectionTitle('Vị trí'),
                   MiniMapPreview(
                     location: propertyLocation,
-                    useGoogleMaps:
-                        context.read<AppRuntime?>()?.googleMapsConfigured ==
-                        true,
+                    status: property.status,
                     height: 150,
-                    pinColor: property.status.color,
                   ),
                   if (property.documents.isNotEmpty ||
                       property.documentSeeds.isNotEmpty) ...[

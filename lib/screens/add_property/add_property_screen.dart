@@ -556,8 +556,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
             const _SectionLabel('Vị trí'),
             MiniMapPreview(
               location: _location,
-              useGoogleMaps:
-                  context.read<AppRuntime?>()?.googleMapsConfigured == true,
+              status: _status,
               onTap: _pickOnMap,
             ),
             const SizedBox(height: 8),

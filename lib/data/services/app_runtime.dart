@@ -5,7 +5,6 @@ import '../repositories/sqlite_app_repository.dart';
 import 'app_directories.dart';
 import 'backup_service.dart';
 import 'location_service.dart';
-import 'map_configuration_service.dart';
 import 'media_storage.dart';
 import 'platform_action_service.dart';
 import 'property_share_service.dart';
@@ -20,7 +19,6 @@ class AppRuntime {
   final PlatformActionService platformActions;
   final PropertyShareService propertyShareService;
   final BackupService backupService;
-  final bool googleMapsConfigured;
   final AppState state;
 
   const AppRuntime({
@@ -32,7 +30,6 @@ class AppRuntime {
     required this.platformActions,
     required this.propertyShareService,
     required this.backupService,
-    required this.googleMapsConfigured,
     required this.state,
   });
 
@@ -48,8 +45,6 @@ class AppRuntime {
       directories: directories,
       database: database,
     );
-    final googleMapsConfigured = await const MapConfigurationService()
-        .isGoogleMapsConfigured();
     final state = AppState(repository: repository, mediaStorage: mediaStorage);
     await state.initialize();
     final runtime = AppRuntime(
@@ -61,7 +56,6 @@ class AppRuntime {
       platformActions: platformActions,
       propertyShareService: propertyShareService,
       backupService: backupService,
-      googleMapsConfigured: googleMapsConfigured,
       state: state,
     );
     await runtime.reconcileMedia();

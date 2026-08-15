@@ -1,32 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/geo_point.dart';
-import '../screens/map/map_constants.dart';
-import '../screens/map/widgets/map_background_painter.dart';
+import '../models/property_status.dart';
+import '../screens/map/widgets/property_map_view.dart';
 import '../theme/app_colors.dart';
 
 class MiniMapPreview extends StatelessWidget {
   final GeoPoint location;
-  final bool useGoogleMaps;
+  final PropertyStatus status;
   final double height;
   final BorderRadius borderRadius;
-  final Color pinColor;
   final VoidCallback? onTap;
 
   const MiniMapPreview({
     super.key,
     required this.location,
-    this.useGoogleMaps = false,
+    required this.status,
     this.height = 140,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
-    this.pinColor = AppColors.navy,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final normalizedPosition = location.toLegacyNormalized();
     return ClipRRect(
       borderRadius: borderRadius,
       child: InkWell(
@@ -34,80 +30,28 @@ class MiniMapPreview extends StatelessWidget {
         child: SizedBox(
           height: height,
           width: double.infinity,
-          child: useGoogleMaps
-              ? Stack(
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: GoogleMap(
-                          initialCameraPosition: CameraPosition(
-                            target: LatLng(
-                              location.latitude,
-                              location.longitude,
-                            ),
-                            zoom: 15,
-                          ),
-                          markers: {
-                            Marker(
-                              markerId: const MarkerId('property-preview'),
-                              position: LatLng(
-                                location.latitude,
-                                location.longitude,
-                              ),
-                            ),
-                          },
-                          liteModeEnabled: true,
-                          zoomControlsEnabled: false,
-                          mapToolbarEnabled: false,
-                          myLocationButtonEnabled: false,
-                        ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: PropertyMapView(
+                    initialTarget: location,
+                    initialZoom: 15,
+                    interactive: false,
+                    showCompass: false,
+                    markers: [
+                      PropertyMapMarkerData(
+                        id: 'preview',
+                        position: location,
+                        status: status,
                       ),
-                    ),
-                    if (onTap != null) _openMapLabel(),
-                  ],
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final previewSize = constraints.biggest;
-                    const scale = 2.2;
-                    final dx =
-                        previewSize.width / 2 -
-                        mapCanvasSize.width * normalizedPosition.x * scale;
-                    final dy =
-                        previewSize.height / 2 -
-                        mapCanvasSize.height * normalizedPosition.y * scale;
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ColoredBox(color: AppColors.mapLand),
-                        ),
-                        Positioned(
-                          left: dx,
-                          top: dy,
-                          child: Transform.scale(
-                            scale: scale,
-                            alignment: Alignment.topLeft,
-                            child: SizedBox(
-                              width: mapCanvasSize.width,
-                              height: mapCanvasSize.height,
-                              child: const CustomPaint(
-                                painter: MapBackgroundPainter(),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Center(
-                          child: Icon(
-                            Icons.location_on_rounded,
-                            color: pinColor,
-                            size: 34,
-                          ),
-                        ),
-                        if (onTap != null) _openMapLabel(),
-                      ],
-                    );
-                  },
+                    ],
+                  ),
                 ),
+              ),
+              if (onTap != null) _openMapLabel(),
+            ],
+          ),
         ),
       ),
     );
