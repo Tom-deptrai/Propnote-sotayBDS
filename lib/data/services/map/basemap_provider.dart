@@ -11,6 +11,16 @@ class BasemapProvider {
   final Map<String, String>? headers;
   final bool requiresApiKey;
 
+  /// Font stack (theo tên trong style JSON của provider, vd. "Noto Sans
+  /// Bold") dùng cho text symbol (label giá...) do app tự vẽ thêm lên bản
+  /// đồ. Renderer yêu cầu tên khớp với font stack mà glyphs endpoint của
+  /// style thực sự phục vụ — nếu không, chữ sẽ không hiển thị dù layer vẫn
+  /// được tạo thành công (không có lỗi rõ ràng nào được ném ra). Đã xác
+  /// minh trực tiếp qua style JSON của OpenFreeMap Liberty (glyphs
+  /// endpoint) rằng font stack "Noto Sans Bold" tồn tại thật, không phải
+  /// suy đoán — an toàn để dùng cho label giá dễ đọc hơn "Regular".
+  final List<String> textFontNames;
+
   const BasemapProvider({
     required this.id,
     required this.displayName,
@@ -18,6 +28,7 @@ class BasemapProvider {
     this.attribution,
     this.headers,
     this.requiresApiKey = false,
+    this.textFontNames = const ['Noto Sans Bold'],
   });
 }
 

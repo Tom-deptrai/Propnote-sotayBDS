@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:propnote/models/property_status.dart';
@@ -114,6 +116,60 @@ void main() {
     expect(result?.propertyTypes, contains(state.propertyTypes.first));
   });
 
+  testWidgets(
+    'show-price toggle reveals the unit sub-toggle and both round-trip '
+    'through apply',
+    (tester) async {
+      final state = AppState();
+      MapAdvancedFilter? result;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: state,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () async {
+                    result = await showAdvancedFilterSheet(context);
+                  },
+                  child: const Text('Mở'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Mở'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hiển thị giá'), findsOneWidget);
+      expect(find.text('Hiển thị đơn vị tỷ'), findsNothing);
+
+      await tester.tap(find.text('Hiển thị giá'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hiển thị đơn vị tỷ'), findsOneWidget);
+
+      await tester.tap(find.text('Hiển thị đơn vị tỷ'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Áp dụng'));
+      await tester.pumpAndSettle();
+
+      expect(result?.showPrice, isTrue);
+      expect(result?.showPriceUnit, isFalse);
+    },
+  );
+
+  test(
+    'MapAdvancedFilter.isDefault accounts for the price display toggles',
+    () {
+      expect(const MapAdvancedFilter().isDefault, isTrue);
+      expect(const MapAdvancedFilter(showPrice: true).isDefault, isFalse);
+      expect(const MapAdvancedFilter(showPriceUnit: false).isDefault, isFalse);
+    },
+  );
+
   test('Property marker cache keys include status, scale, and pixel ratio', () {
     final factory = PropertyMapMarkerIcons();
     final selling = factory.cacheKey(PropertyStatus.selling, 1, 3);
@@ -124,5 +180,43 @@ void main() {
     expect(PropertyStatus.selling.color, const Color(0xFFD92D20));
     expect(PropertyStatus.unsurveyed.color, const Color(0xFF17B26A));
     expect(PropertyStatus.sold.color, const Color(0xFF98A2B3));
+  });
+
+  test('property marker icon is rendered at ~2x the pre-Đợt-1.1 baseline size '
+      'across the full markerScale range, and grows with scale', () async {
+    final factory = PropertyMapMarkerIcons();
+    const dpr = 2.0;
+
+    Future<int> widthFor(double scale) async {
+      final (bytes, _) = await factory.iconFor(
+        status: PropertyStatus.selling,
+        scale: scale,
+        devicePixelRatio: dpr,
+      );
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final width = frame.image.width;
+      frame.image.dispose();
+      return width;
+    }
+
+    final minWidth = await widthFor(AppState.markerScaleMin);
+    final defaultWidth = await widthFor(AppState.markerScaleDefault);
+    final maxWidth = await widthFor(AppState.markerScaleMax);
+
+    // Baseline (trước Đợt 1.1) render ở logicalSize*dpr với logicalSize
+    // clamp [20,45]; sau khi x2 là clamp [40,90] — kiểm tra đúng biên mới.
+    expect(minWidth, greaterThanOrEqualTo((40.0 * dpr).round() - 1));
+    expect(maxWidth, lessThanOrEqualTo((90.0 * dpr).round() + 1));
+    expect(minWidth, lessThan(defaultWidth));
+    expect(defaultWidth, lessThan(maxWidth));
+
+    // So với vùng baseline cũ (clamp [20,45] * dpr), icon mới phải lớn
+    // hơn nhiều hơn hệ số 1.5x ở cả hai đầu range — xác nhận việc x2 có
+    // hiệu lực thật trên bitmap, không chỉ trên số lý thuyết.
+    const oldMinWidth = 20.0 * dpr;
+    const oldMaxWidth = 45.0 * dpr;
+    expect(minWidth, greaterThan(oldMinWidth * 1.5));
+    expect(maxWidth, greaterThan(oldMaxWidth * 1.5));
   });
 }

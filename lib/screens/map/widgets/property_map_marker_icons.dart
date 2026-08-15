@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import '../../../models/property_status.dart';
 import 'map_marker.dart';
 
-/// Sinh icon bitmap (PNG bytes) cho marker BĐS và marker vị trí hiện tại,
-/// dùng để đăng ký với renderer bản đồ qua `addImage`.
+/// Sinh icon bitmap (PNG bytes) cho marker BĐS, dùng để đăng ký với renderer
+/// bản đồ qua `addImage`.
 ///
 /// Renderer-agnostic: chỉ vẽ pixel và trả về bytes + tên cache key ổn định,
 /// không phụ thuộc SDK bản đồ cụ thể nào.
@@ -16,15 +16,14 @@ class PropertyMapMarkerIcons {
 
   int get cacheSize => _cache.length;
 
-  String cacheKey(PropertyStatus status, double scale, double devicePixelRatio) {
+  String cacheKey(
+    PropertyStatus status,
+    double scale,
+    double devicePixelRatio,
+  ) {
     final scaleStep = (scale * 10).round();
     final pixelRatioStep = (devicePixelRatio * 10).round();
     return 'status:${status.name}:$scaleStep:$pixelRatioStep';
-  }
-
-  String currentLocationCacheKey(double devicePixelRatio) {
-    final pixelRatioStep = (devicePixelRatio * 10).round();
-    return 'current-location:$pixelRatioStep';
   }
 
   /// Trả về (bytes PNG, iconSize) — [iconSize] là hệ số cần truyền vào
@@ -38,9 +37,11 @@ class PropertyMapMarkerIcons {
   }) async {
     final key = cacheKey(status, scale, devicePixelRatio);
     final cached = _cache[key];
-    final logicalSize = (PropertyMarker.hitBoxFor(scale) * 0.68).clamp(
-      20.0,
-      45.0,
+    // x2 so với kích thước gốc trên toàn bộ range markerScale — giữ nguyên
+    // đường cong tương đối, chỉ nhân đôi đầu ra và biên clamp tương ứng.
+    final logicalSize = (PropertyMarker.hitBoxFor(scale) * 0.68 * 2).clamp(
+      40.0,
+      90.0,
     );
     if (cached != null) return (cached, 1 / devicePixelRatio);
 
@@ -48,23 +49,6 @@ class PropertyMapMarkerIcons {
       logicalSize: logicalSize,
       devicePixelRatio: devicePixelRatio,
       fillColor: status.color,
-    );
-    _cache[key] = bytes;
-    return (bytes, 1 / devicePixelRatio);
-  }
-
-  Future<(Uint8List bytes, double iconSize)> currentLocationIcon({
-    required double devicePixelRatio,
-  }) async {
-    final key = currentLocationCacheKey(devicePixelRatio);
-    final cached = _cache[key];
-    const logicalSize = 22.0;
-    if (cached != null) return (cached, 1 / devicePixelRatio);
-
-    final bytes = await _renderDot(
-      logicalSize: logicalSize,
-      devicePixelRatio: devicePixelRatio,
-      fillColor: const Color(0xFF2F6FE4),
     );
     _cache[key] = bytes;
     return (bytes, 1 / devicePixelRatio);

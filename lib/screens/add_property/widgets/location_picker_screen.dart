@@ -17,6 +17,24 @@ Future<GeoPoint?> showLocationPickerScreen(
   );
 }
 
+/// Chọn toạ độ trả về khi người dùng xác nhận vị trí trên picker.
+///
+/// [actualCameraCenter] (đọc trực tiếp từ renderer tại thời điểm bấm xác
+/// nhận, xem [PropertyMapController.getCameraCenter]) luôn được ưu tiên hơn
+/// [cachedTarget] (giá trị tích luỹ từ các event `onCameraMove` trước đó,
+/// có thể bị lỡ lần bắn cuối) — chỉ dùng [cachedTarget] khi không đọc được
+/// camera thực tế hoặc giá trị đọc được không hợp lệ.
+@visibleForTesting
+GeoPoint resolveConfirmedLocation({
+  required GeoPoint cachedTarget,
+  required GeoPoint? actualCameraCenter,
+}) {
+  if (actualCameraCenter != null && actualCameraCenter.isValid) {
+    return actualCameraCenter;
+  }
+  return cachedTarget;
+}
+
 class LocationPickerScreen extends StatefulWidget {
   final GeoPoint? initial;
 
@@ -37,7 +55,20 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   bool _locating = false;
 
   Future<void> _confirm() async {
-    Navigator.pop(context, _target);
+    GeoPoint? actualCenter;
+    try {
+      actualCenter = await _mapController?.getCameraCenter();
+    } catch (_) {
+      // Không đọc được camera thực tế (vd. style chưa sẵn sàng) — rơi về
+      // _target tích luỹ từ onCameraMove, vẫn tốt hơn là chặn xác nhận.
+      actualCenter = null;
+    }
+    if (!mounted) return;
+    final selected = resolveConfirmedLocation(
+      cachedTarget: _target,
+      actualCameraCenter: actualCenter,
+    );
+    Navigator.pop(context, selected);
   }
 
   Future<void> _useCurrentLocation() async {

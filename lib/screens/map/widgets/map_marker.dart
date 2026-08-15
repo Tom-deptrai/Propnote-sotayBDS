@@ -116,6 +116,10 @@ class MapClusterMarker extends StatelessWidget {
   }
 }
 
+/// Màu chấm vị trí hiện tại — dùng chung cho overlay marker và icon nút bật
+/// GPS trên Map Screen để hai trạng thái nhìn nhất quán với nhau.
+const Color currentLocationColor = Color(0xFF2F6FE4);
+
 class CurrentLocationMarker extends StatefulWidget {
   const CurrentLocationMarker({super.key});
 
@@ -156,7 +160,7 @@ class _CurrentLocationMarkerState extends State<CurrentLocationMarker>
                       width: 20 + t * 40,
                       height: 20 + t * 40,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF2F6FE4),
+                        color: currentLocationColor,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -165,7 +169,7 @@ class _CurrentLocationMarkerState extends State<CurrentLocationMarker>
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2F6FE4),
+                      color: currentLocationColor,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 3),
                       boxShadow: [

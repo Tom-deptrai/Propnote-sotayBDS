@@ -22,6 +22,19 @@ String _trimZero(double value) {
   return rounded.toString().replaceFirst('.', ',');
 }
 
+/// Định dạng giá cho label/marker trên bản đồ: luôn quy đổi ra tỷ, dùng dấu
+/// chấm thập phân (khác [formatPriceShort] vốn thích ứng đơn vị và dùng dấu
+/// phẩy kiểu Việt Nam), bỏ số 0 thừa. Trả về `null` nếu giá không hợp lệ
+/// (≤ 0) — không có gì để hiển thị thay vì hiện nhãn rỗng/gây hiểu nhầm.
+String? formatMarkerPrice(double price, {required bool withUnit}) {
+  if (price <= 0) return null;
+  final billions = (price / 1e9 * 100).round() / 100;
+  final text = billions == billions.roundToDouble()
+      ? billions.toInt().toString()
+      : billions.toStringAsFixed(2).replaceFirst(RegExp(r'0$'), '');
+  return withUnit ? '$text tỷ' : text;
+}
+
 String formatArea(double area) {
   final isWhole = area == area.roundToDouble();
   final text = isWhole

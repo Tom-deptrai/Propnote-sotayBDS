@@ -115,6 +115,8 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       _surveyDate = p.surveyDate;
     } else {
       _surveyDate = DateTime.now();
+      final lastMapLocation = context.read<AppState>().lastMapLocation;
+      if (lastMapLocation != null) _location = lastMapLocation;
     }
   }
 
@@ -198,6 +200,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         _location = result;
         _locationTouched = true;
       });
+      if (mounted) context.read<AppState>().setLastMapLocation(result);
     }
   }
 
@@ -213,6 +216,7 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         _location = point;
         _locationTouched = true;
       });
+      context.read<AppState>().setLastMapLocation(point);
       showAppSnackBar('Đã dùng vị trí hiện tại');
     } on LocationFailure catch (error) {
       if (!mounted) return;

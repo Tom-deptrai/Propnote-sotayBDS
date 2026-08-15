@@ -8,17 +8,23 @@ class MapAdvancedFilter {
   final double minimumPriceBillions;
   final double maximumPriceBillions;
   final Set<String> propertyTypes;
+  final bool showPrice;
+  final bool showPriceUnit;
 
   const MapAdvancedFilter({
     this.minimumPriceBillions = 0,
     this.maximumPriceBillions = 50,
     this.propertyTypes = const {},
+    this.showPrice = false,
+    this.showPriceUnit = true,
   });
 
   bool get isDefault =>
       minimumPriceBillions == 0 &&
       maximumPriceBillions == 50 &&
-      propertyTypes.isEmpty;
+      propertyTypes.isEmpty &&
+      showPrice == false &&
+      showPriceUnit == true;
 }
 
 Future<MapAdvancedFilter?> showAdvancedFilterSheet(
@@ -47,6 +53,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
     widget.initial.maximumPriceBillions,
   );
   late final Set<String> _types = Set.of(widget.initial.propertyTypes);
+  late bool _showPrice = widget.initial.showPrice;
+  late bool _showPriceUnit = widget.initial.showPriceUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -61,147 +69,173 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
           top: 12,
           bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Bộ lọc nâng cao',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Kích thước điểm đánh dấu',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                InkWell(
-                  onTap: state.resetMarkerScale,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Text(
-                      'Đặt lại',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navy,
+              const SizedBox(height: 16),
+              Text(
+                'Bộ lọc nâng cao',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Kích thước điểm đánh dấu',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  InkWell(
+                    onTap: state.resetMarkerScale,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Text(
+                        'Đặt lại',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.navy,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on,
-                  size: 14,
-                  color: AppColors.textTertiary,
-                ),
-                Expanded(
-                  child: Slider(
-                    value: state.markerScale,
-                    min: AppState.markerScaleMin,
-                    max: AppState.markerScaleMax,
-                    activeColor: AppColors.navy,
-                    inactiveColor: AppColors.border,
-                    onChanged: state.setMarkerScale,
-                  ),
-                ),
-                const Icon(
-                  Icons.location_on,
-                  size: 26,
-                  color: AppColors.textTertiary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Khoảng giá (tỷ đồng)',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            RangeSlider(
-              values: _price,
-              min: 0,
-              max: 50,
-              divisions: 25,
-              activeColor: AppColors.navy,
-              inactiveColor: AppColors.border,
-              labels: RangeLabels(
-                _price.start.toStringAsFixed(0),
-                _price.end.toStringAsFixed(0),
+                ],
               ),
-              onChanged: (v) => setState(() => _price = v),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Loại bất động sản',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: state.propertyTypes.map((t) {
-                final selected = _types.contains(t);
-                return FilterChip(
-                  label: Text(t),
-                  selected: selected,
-                  showCheckmark: false,
-                  onSelected: (v) {
-                    setState(() => v ? _types.add(t) : _types.remove(t));
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _price = const RangeValues(0, 50);
-                        _types.clear();
-                      });
-                      state.resetMarkerScale();
-                    },
-                    child: const Text('Đặt lại'),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on,
+                    size: 14,
+                    color: AppColors.textTertiary,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(
-                        context,
-                        MapAdvancedFilter(
-                          minimumPriceBillions: _price.start,
-                          maximumPriceBillions: _price.end,
-                          propertyTypes: Set.unmodifiable(_types),
-                        ),
-                      );
-                    },
-                    child: const Text('Áp dụng'),
+                  Expanded(
+                    child: Slider(
+                      value: state.markerScale,
+                      min: AppState.markerScaleMin,
+                      max: AppState.markerScaleMax,
+                      activeColor: AppColors.navy,
+                      inactiveColor: AppColors.border,
+                      onChanged: state.setMarkerScale,
+                    ),
                   ),
+                  const Icon(
+                    Icons.location_on,
+                    size: 26,
+                    color: AppColors.textTertiary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Khoảng giá (tỷ đồng)',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              RangeSlider(
+                values: _price,
+                min: 0,
+                max: 50,
+                divisions: 25,
+                activeColor: AppColors.navy,
+                inactiveColor: AppColors.border,
+                labels: RangeLabels(
+                  _price.start.toStringAsFixed(0),
+                  _price.end.toStringAsFixed(0),
                 ),
-              ],
-            ),
-          ],
+                onChanged: (v) => setState(() => _price = v),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Loại bất động sản',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: state.propertyTypes.map((t) {
+                  final selected = _types.contains(t);
+                  return FilterChip(
+                    label: Text(t),
+                    selected: selected,
+                    showCheckmark: false,
+                    onSelected: (v) {
+                      setState(() => v ? _types.add(t) : _types.remove(t));
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Hiển thị giá',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                value: _showPrice,
+                onChanged: (v) => setState(() => _showPrice = v),
+              ),
+              if (_showPrice)
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Hiển thị đơn vị tỷ',
+                    style: TextStyle(fontSize: 13.5),
+                  ),
+                  value: _showPriceUnit,
+                  onChanged: (v) => setState(() => _showPriceUnit = v),
+                ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _price = const RangeValues(0, 50);
+                          _types.clear();
+                          _showPrice = false;
+                          _showPriceUnit = true;
+                        });
+                        state.resetMarkerScale();
+                      },
+                      child: const Text('Đặt lại'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          MapAdvancedFilter(
+                            minimumPriceBillions: _price.start,
+                            maximumPriceBillions: _price.end,
+                            propertyTypes: Set.unmodifiable(_types),
+                            showPrice: _showPrice,
+                            showPriceUnit: _showPriceUnit,
+                          ),
+                        );
+                      },
+                      child: const Text('Áp dụng'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

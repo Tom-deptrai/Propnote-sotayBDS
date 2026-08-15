@@ -12,7 +12,8 @@ class GeoPoint {
       longitude >= -180 &&
       longitude <= 180;
 
-  /// Projection gần đúng chỉ dùng cho canvas fallback khi chưa cấu hình API key.
+  /// Projection gần đúng chỉ dùng để suy ra mapX/mapY legacy cho dữ liệu cũ
+  /// chưa có lat/lng thật — không dùng để hiển thị bản đồ thật.
   factory GeoPoint.fromLegacyNormalized(double x, double y) {
     return GeoPoint(
       latitude: 21.0285 + (0.5 - y) * 0.12,
@@ -26,4 +27,17 @@ class GeoPoint {
       y: (0.5 - (latitude - 21.0285) / 0.12).clamp(0.02, 0.98),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GeoPoint &&
+          latitude == other.latitude &&
+          longitude == other.longitude);
+
+  @override
+  int get hashCode => Object.hash(latitude, longitude);
+
+  @override
+  String toString() => 'GeoPoint($latitude, $longitude)';
 }

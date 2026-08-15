@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:propnote/data/database/app_database.dart';
 import 'package:propnote/data/repositories/sqlite_app_repository.dart';
 import 'package:propnote/data/services/app_directories.dart';
+import 'package:propnote/models/geo_point.dart';
 import 'package:propnote/models/property.dart';
 import 'package:propnote/models/property_status.dart';
 import 'package:propnote/state/app_state.dart';
@@ -84,4 +85,43 @@ void main() {
       }
     },
   );
+
+  test('lastMapLocation is null by default, persists after being set, and '
+      'survives a full database reopen', () async {
+    final temporary = await Directory.systemTemp.createTemp(
+      'propnote_last_map_location_test_',
+    );
+    try {
+      final directories = await AppDirectories.create(rootPath: temporary.path);
+      var database = AppDatabase(
+        directories: directories,
+        factory: databaseFactoryFfi,
+      );
+      var state = AppState(repository: SqliteAppRepository(database));
+      await state.initialize();
+
+      expect(state.lastMapLocation, isNull);
+
+      const point = GeoPoint(latitude: 10.7769, longitude: 106.7009);
+      await state.setLastMapLocation(point);
+      expect(state.lastMapLocation, point);
+      await database.close();
+
+      database = AppDatabase(
+        directories: directories,
+        factory: databaseFactoryFfi,
+      );
+      state = AppState(repository: SqliteAppRepository(database));
+      await state.initialize();
+
+      expect(state.lastMapLocation, point);
+
+      const secondPoint = GeoPoint(latitude: 16.0544, longitude: 108.2022);
+      await state.setLastMapLocation(secondPoint);
+      expect(state.lastMapLocation, secondPoint);
+      await database.close();
+    } finally {
+      await temporary.delete(recursive: true);
+    }
+  });
 }

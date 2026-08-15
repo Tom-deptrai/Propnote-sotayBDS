@@ -39,6 +39,7 @@ class MiniMapPreview extends StatelessWidget {
                     initialZoom: 15,
                     interactive: false,
                     showCompass: false,
+                    followInitialTargetChanges: true,
                     markers: [
                       PropertyMapMarkerData(
                         id: 'preview',

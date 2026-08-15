@@ -28,6 +28,7 @@ class AppState extends ChangeNotifier {
   late List<PropertyTag> _tagModels;
 
   double _markerScale = markerScaleDefault;
+  GeoPoint? _lastMapLocation;
   Future<void> _settingWrite = Future.value();
   bool _isLoading = false;
   bool _isInitialized = false;
@@ -36,6 +37,7 @@ class AppState extends ChangeNotifier {
   static const double markerScaleMin = 0.6;
   static const double markerScaleMax = 1.4;
   static const double markerScaleDefault = 1.0;
+  static const String _lastMapLocationKey = 'last_map_location';
 
   AppState({AppRepository? repository, this.mediaStorage, Uuid? uuid})
     : _repository = repository,
@@ -105,6 +107,9 @@ class AppState extends ChangeNotifier {
       _propertyTypeModels = snapshot.propertyTypes.toList();
       _tagModels = snapshot.tags.toList();
       _markerScale = snapshot.markerScale.clamp(markerScaleMin, markerScaleMax);
+      _lastMapLocation = _decodeGeoPoint(
+        await _repository.readSetting(_lastMapLocationKey),
+      );
       _isInitialized = true;
     } catch (error) {
       _lastError = error;
@@ -161,6 +166,43 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> resetMarkerScale() => setMarkerScale(markerScaleDefault);
+
+  /// Vị trí bản đồ gần nhất người dùng thực sự dùng (GPS thành công hoặc
+  /// xác nhận trên location picker) — dùng làm initial camera thay vì quay
+  /// về một toạ độ mặc định vô lý khi người dùng đã có lịch sử dùng app.
+  GeoPoint? get lastMapLocation => _lastMapLocation;
+
+  Future<void> setLastMapLocation(GeoPoint point) {
+    if (_lastMapLocation == point) return Future.value();
+    _lastMapLocation = point;
+    notifyListeners();
+
+    final repository = _repository;
+    if (repository == null) return Future.value();
+    final write = _settingWrite.then(
+      (_) =>
+          repository.writeSetting(_lastMapLocationKey, _encodeGeoPoint(point)),
+    );
+    _settingWrite = write.catchError((_) {});
+    return write.catchError((_) {
+      // Vị trí map gần nhất chỉ là tiện ích UX — lỗi ghi không cần rethrow
+      // lên UI, giữ nguyên giá trị đã cập nhật trong bộ nhớ.
+    });
+  }
+
+  static String _encodeGeoPoint(GeoPoint point) =>
+      '${point.latitude},${point.longitude}';
+
+  static GeoPoint? _decodeGeoPoint(String? raw) {
+    if (raw == null) return null;
+    final parts = raw.split(',');
+    if (parts.length != 2) return null;
+    final lat = double.tryParse(parts[0]);
+    final lng = double.tryParse(parts[1]);
+    if (lat == null || lng == null) return null;
+    final point = GeoPoint(latitude: lat, longitude: lng);
+    return point.isValid ? point : null;
+  }
 
   PropertyArea? areaById(String id) {
     for (final area in _areas) {

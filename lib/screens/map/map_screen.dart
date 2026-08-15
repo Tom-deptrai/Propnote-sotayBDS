@@ -10,8 +10,47 @@ import '../../state/app_state.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/app_search_bar.dart';
 import 'widgets/advanced_filter_sheet.dart';
+import 'widgets/map_marker.dart' show currentLocationColor;
 import 'widgets/property_bottom_sheet.dart';
 import 'widgets/property_map_view.dart';
+
+/// Ánh xạ danh sách BĐS (đang hiển thị theo filter) + vị trí hiện tại thành
+/// danh sách marker cho [PropertyMapView]. Tách khỏi [MapScreen] để test
+/// được bằng Dart thuần — không cần dựng renderer bản đồ thật.
+///
+/// [properties] được đưa vào renderer theo thứ tự CŨ→MỚI (đảo ngược thứ tự
+/// mới→cũ mặc định của [AppState.properties]) để BĐS mới hơn được vẽ sau,
+/// nằm trên BĐS cũ hơn khi hai marker trùng/gần vị trí — không marker nào
+/// bị ẩn, chỉ đơn giản là marker mới nổi lên trên.
+@visibleForTesting
+List<PropertyMapMarkerData> buildPropertyMarkers({
+  required List<Property> properties,
+  required GeoPoint? currentLocation,
+  required void Function(Property property) onMarkerTap,
+}) {
+  final oldestFirst = properties.reversed;
+  final markers = <PropertyMapMarkerData>[
+    for (final property in oldestFirst)
+      if (property.location != null)
+        PropertyMapMarkerData(
+          id: property.id,
+          position: property.location!,
+          status: property.status,
+          price: property.price,
+          onTap: () => onMarkerTap(property),
+        ),
+  ];
+  if (currentLocation != null) {
+    markers.add(
+      PropertyMapMarkerData(
+        id: 'current-location',
+        position: currentLocation,
+        isCurrentLocation: true,
+      ),
+    );
+  }
+  return markers;
+}
 
 enum _StatusFilter { all, selling, unsurveyed, sold }
 
@@ -65,6 +104,13 @@ class _MapScreenState extends State<MapScreen> {
   GeoPoint? _currentGeoLocation;
   bool _locating = false;
 
+  /// Marker vị trí hiện tại là toggle, không phải hiển thị vĩnh viễn — nếu
+  /// GPS trùng vị trí một BĐS, người dùng cần cách tắt nó đi để tap được
+  /// marker BĐS bên dưới. Mặc định OFF mỗi khi Map Screen được dựng lại
+  /// (không persist qua restart), tách biệt với [AppState.lastMapLocation]
+  /// vốn vẫn luôn được cập nhật mỗi lần lấy GPS thành công.
+  bool _showCurrentLocationMarker = false;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -72,13 +118,20 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _goToCurrentLocation(AppRuntime? runtime) async {
-    if (runtime == null || _locating) return;
+    if (_locating) return;
+    if (_showCurrentLocationMarker) {
+      // Bấm lần 2: tắt marker, giữ nguyên camera — không cần gọi GPS lại.
+      setState(() => _showCurrentLocationMarker = false);
+      return;
+    }
+    if (runtime == null) return;
     setState(() => _locating = true);
     try {
       final point = await runtime.locationService.currentLocation();
       _currentGeoLocation = point;
       await _mapController?.animateTo(point, zoom: 16);
-      if (mounted) setState(() {});
+      if (mounted) context.read<AppState>().setLastMapLocation(point);
+      if (mounted) setState(() => _showCurrentLocationMarker = true);
     } on LocationFailure catch (error) {
       if (mounted) {
         final canOpenSettings =
@@ -130,38 +183,6 @@ class _MapScreenState extends State<MapScreen> {
         p.tags.any((tag) => tag.toLowerCase().contains(q));
   }
 
-  List<PropertyMapMarkerData> _buildMarkers(
-    BuildContext context,
-    List<Property> properties,
-    AppState state,
-  ) {
-    final markers = <PropertyMapMarkerData>[
-      for (final property in properties)
-        if (property.location != null)
-          PropertyMapMarkerData(
-            id: property.id,
-            position: property.location!,
-            status: property.status,
-            onTap: () => showPropertyPreviewSheet(
-              context,
-              property: property,
-              areaName: state.areaName(property.areaId),
-            ),
-          ),
-    ];
-    final current = _currentGeoLocation;
-    if (current != null) {
-      markers.add(
-        PropertyMapMarkerData(
-          id: 'current-location',
-          position: current,
-          isCurrentLocation: true,
-        ),
-      );
-    }
-    return markers;
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -175,6 +196,7 @@ class _MapScreenState extends State<MapScreen> {
             .map((property) => property.location)
             .nonNulls
             .firstOrNull ??
+        state.lastMapLocation ??
         _hanoi;
 
     return Scaffold(
@@ -184,8 +206,20 @@ class _MapScreenState extends State<MapScreen> {
           Positioned.fill(
             child: PropertyMapView(
               initialTarget: initialLocation,
-              markers: _buildMarkers(context, visibleProperties, state),
+              markers: buildPropertyMarkers(
+                properties: visibleProperties,
+                currentLocation: _showCurrentLocationMarker
+                    ? _currentGeoLocation
+                    : null,
+                onMarkerTap: (property) => showPropertyPreviewSheet(
+                  context,
+                  property: property,
+                  areaName: state.areaName(property.areaId),
+                ),
+              ),
               markerScale: markerScale,
+              showPrice: _advancedFilter.showPrice,
+              showPriceUnit: _advancedFilter.showPriceUnit,
               onMapReady: (controller) => _mapController = controller,
             ),
           ),
@@ -236,6 +270,9 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 150,
             child: _RoundIconButton(
               icon: Icons.my_location_rounded,
+              iconColor: _showCurrentLocationMarker
+                  ? currentLocationColor
+                  : AppColors.navy,
               onTap: _locating ? null : () => _goToCurrentLocation(runtime),
             ),
           ),
@@ -289,9 +326,14 @@ class _FilterChipRow extends StatelessWidget {
 
 class _RoundIconButton extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final VoidCallback? onTap;
 
-  const _RoundIconButton({required this.icon, required this.onTap});
+  const _RoundIconButton({
+    required this.icon,
+    this.iconColor = AppColors.navy,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +347,7 @@ class _RoundIconButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: AppColors.navy, size: 22),
+          child: Icon(icon, color: iconColor, size: 22),
         ),
       ),
     );
