@@ -62,7 +62,16 @@ Map<String, dynamic> buildLocalMapStyle({
     'version': 8,
     'name': 'PropNote Local Style — ${region.displayName}',
     'sources': {
-      'openmaptiles': {'type': 'vector', 'url': pmtilesUrl},
+      'openmaptiles': {
+        'type': 'vector',
+        'url': pmtilesUrl,
+        // Khai báo attribution TƯỜNG MINH trên source thay vì chỉ dựa vào
+        // control mặc định của MapLibre — theo MapLibre style spec, control
+        // attribution native tổng hợp attribution từ TẤT CẢ source trong
+        // style, nên khai báo ở đây đảm bảo chuỗi đúng license luôn hiện dù
+        // control có thay đổi cách suy luận mặc định sau này.
+        'attribution': BasemapProviders.active.attribution,
+      },
       'coverage-mask': {
         'type': 'geojson',
         'data': _coverageMaskGeoJson(region),

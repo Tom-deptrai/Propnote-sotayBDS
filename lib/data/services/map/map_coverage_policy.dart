@@ -98,6 +98,17 @@ abstract final class MapCoveragePolicy {
   static bool isSupported(GeoPoint point) =>
       regionContaining(point) != null;
 
+  /// Tra [SupportedMapRegion] theo id đã lưu (vd. từ
+  /// `AppState.lastSupportedMapRegionId`) — trả null nếu [id] không khớp
+  /// vùng nào đã biết (vd. giá trị cũ/hỏng từ 1 bản app trước).
+  static SupportedMapRegion? regionById(String? id) {
+    if (id == null) return null;
+    for (final region in allRegions) {
+      if (region.id == id) return region;
+    }
+    return null;
+  }
+
   /// Vùng "phù hợp nhất" để mở một [PropertyMapView] tại [target] — nếu
   /// [target] nằm trong 1 vùng, dùng đúng vùng đó; nếu nằm ngoài mọi vùng
   /// (vd. BĐS cũ ở tỉnh khác), chọn vùng có tâm gần [target] nhất để bản đồ

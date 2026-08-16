@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show Point;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -49,8 +50,15 @@ class PropertyMapMarkerData {
 /// gọi vào, để sau này đổi renderer không phải sửa lại logic domain.
 class PropertyMapController {
   final MapLibreMapController _raw;
+  final Future<void> Function(
+    SupportedMapRegion region, {
+    GeoPoint? cameraTarget,
+    double? zoom,
+  })
+  _switchRegion;
+  final void Function() _resetNorth;
 
-  const PropertyMapController._(this._raw);
+  const PropertyMapController._(this._raw, this._switchRegion, this._resetNorth);
 
   Future<void> animateTo(GeoPoint target, {double zoom = 16}) {
     return _raw.animateCamera(
@@ -75,11 +83,30 @@ class PropertyMapController {
     }
     return GeoPoint(latitude: target.latitude, longitude: target.longitude);
   }
+
+  /// Chuyển bản đồ sang hiển thị [region] — tải PMTiles của vùng đó nếu
+  /// chưa có (cache theo vùng, xem [LocalMapAssetsService]), swap style TẠI
+  /// CHỖ qua `MapLibreMapController.setStyle` (không remount widget/không
+  /// mất controller), camera bay tới `region.defaultCenter`/`defaultZoom`.
+  /// Idempotent nếu [region] đã đang active. Marker/price-label/current-
+  /// location overlay tự phục hồi sau khi style mới load xong (xem
+  /// `_onStyleLoaded`, dùng lại nguyên logic sync đã có).
+  Future<void> switchToRegion(SupportedMapRegion region) => _switchRegion(
+    region,
+    cameraTarget: region.defaultCenter,
+    zoom: region.defaultZoom,
+  );
+
+  /// Xoay bản đồ về hướng Bắc (bearing 0°) — KHÔNG đổi center/zoom, dùng cho
+  /// nút la bàn tự vẽ (đồng bộ UX với compass control gốc của MapLibre).
+  void resetNorth() => _resetNorth();
 }
 
 typedef PropertyMapReadyCallback =
     void Function(PropertyMapController controller);
 typedef PropertyMapCameraMoveCallback = void Function(GeoPoint target);
+typedef PropertyMapRegionChangedCallback =
+    void Function(SupportedMapRegion region);
 
 /// Renderer adapter: bọc widget bản đồ MapLibre + basemap [BasemapProviders]
 /// đằng sau một API domain-friendly (GeoPoint, PropertyStatus, callback đơn
@@ -98,10 +125,25 @@ class PropertyMapView extends StatefulWidget {
   final double markerScale;
   final bool interactive;
   final bool showCompass;
+
+  /// Lề (điểm x/y) cho compass control gốc của MapLibre — mặc định null
+  /// (SDK tự đặt góc trên-phải sát mép). Map Screen truyền lề dưới xuống để
+  /// compass không bị khuất sau thanh tìm kiếm/filter chip ở đầu màn hình;
+  /// Location Picker không cần đổi vì không có UI che góc trên.
+  final Point<double>? compassViewMargins;
   final bool showPrice;
   final bool showPriceUnit;
   final PropertyMapReadyCallback? onMapReady;
   final PropertyMapCameraMoveCallback? onCameraMove;
+
+  /// Gọi mỗi khi vùng bản đồ (PMTiles) đang active thực sự đổi — do người
+  /// dùng bấm nút chọn vùng (qua [PropertyMapController.switchToRegion])
+  /// HOẶC do camera/GPS tự đi vào một [SupportedMapRegion] khác vùng đang
+  /// active. Dùng để đồng bộ UI chọn vùng (bấm nút nào đang sáng) và lưu
+  /// last-supported-region — không gọi khi camera chỉ đơn thuần rời khỏi
+  /// coverage vào vùng xám (đó là [showCoverageBanner], không phải đổi
+  /// region).
+  final PropertyMapRegionChangedCallback? onRegionChanged;
 
   /// Khi true, camera tự động bay tới [initialTarget] mỗi khi giá trị này
   /// đổi giữa các lần build (vd. mini-preview cần "đi theo" location đang
@@ -124,10 +166,12 @@ class PropertyMapView extends StatefulWidget {
     this.markerScale = 1.0,
     this.interactive = true,
     this.showCompass = true,
+    this.compassViewMargins,
     this.showPrice = false,
     this.showPriceUnit = true,
     this.onMapReady,
     this.onCameraMove,
+    this.onRegionChanged,
     this.followInitialTargetChanges = false,
     this.showCoverageBanner = true,
   });
@@ -173,26 +217,60 @@ class _PropertyMapViewState extends State<PropertyMapView> {
   Offset? _currentLocationScreenPosition;
   int _currentLocationGeneration = 0;
 
-  // Bản đồ local (PMTiles) — vùng coverage active + style JSON được dựng
-  // KHÔNG ĐỒNG BỘ (phải copy PMTiles/fonts ra đĩa trước, xem
-  // LocalMapAssetsService) trước khi MapLibreMap có thể render. Vùng active
-  // được xác định MỘT LẦN từ initialTarget lúc khởi tạo (không đổi lại khi
-  // initialTarget đổi qua followInitialTargetChanges) — nếu camera sau đó đi
-  // tới điểm ngoài vùng này, hành vi đúng là hiện nền xám + banner, không
-  // phải nạp lại style của vùng khác.
+  // Bản đồ local (PMTiles) — vùng coverage active có thể đổi trong vòng đời
+  // widget (xem [_switchToRegion]): do người dùng bấm nút chọn vùng, hoặc do
+  // camera/GPS tự đi vào một SupportedMapRegion khác vùng đang active. Style
+  // JSON được dựng KHÔNG ĐỒNG BỘ (phải copy PMTiles/fonts ra đĩa trước, xem
+  // LocalMapAssetsService) — cache theo regionId để chuyển qua lại giữa các
+  // vùng đã từng active không phải rebuild/re-encode JSON mỗi lần.
   SupportedMapRegion? _activeRegion;
-  String? _styleJson;
+  final Map<String, String> _styleJsonByRegionId = {};
+  String? _initialStyleJson;
   bool _mapSetupFailed = false;
   bool _isOutsideCoverage = false;
+  bool _regionSwitchInFlight = false;
+  int _regionSwitchGeneration = 0;
 
-  // Timer phòng vệ cho _prepareStyle — xem [_raceWithTimeout]. Giữ lại tham
-  // chiếu để CANCEL trong dispose(): Future.timeout() dựng Timer nội bộ
-  // không expose ra ngoài để huỷ, nên nếu widget bị dispose trước khi
-  // platform channel phản hồi, Timer đó vẫn "pending" tới khi tự bắn — vi
-  // phạm invariant "no pending timers" của flutter_test và làm rớt các test
-  // khác chạy ngay sau. Timer tự quản lý ở đây được huỷ tường minh trong
-  // dispose() nên không bao giờ rò rỉ qua khỏi vòng đời widget.
-  Timer? _assetTimeoutTimer;
+  // Vị trí camera mới nhất (mọi lần onCameraMove, kể cả khi đang bay do
+  // animateCamera của chính app) — dùng làm input cho quyết định TỰ ĐỘNG
+  // chuyển vùng, nhưng quyết định đó chỉ thực thi khi camera đã dừng hẳn.
+  GeoPoint? _lastCameraPoint;
+
+  // Native `onCameraIdle` (maplibre_gl 0.26.2) đã kiểm chứng KHÔNG đáng tin
+  // cậy sau 1 lần `animateCamera` bay xa (vd. GPS nhảy giữa HCM↔Hà Nội, cách
+  // nhau ~1200km): quan sát thực tế trên thiết bị — nó bắn ĐÚNG 1 LẦN với 1
+  // toạ độ giữa chừng chuyến bay (còn cách xa điểm đến hàng trăm km) rồi im
+  // luôn, không bắn lại khi camera đã thực sự dừng ở điểm đến cuối cùng, nên
+  // dùng riêng nó làm nguồn tín hiệu "đã dừng" khiến app kẹt vĩnh viễn ở
+  // trạng thái xám/chưa chuyển vùng. Thay bằng debounce tự cài trên
+  // `onCameraMove`: mỗi lần camera di chuyển, huỷ timer cũ và đặt timer mới
+  // — timer chỉ thực sự bắn khi KHÔNG có onCameraMove nào tiếp theo trong
+  // suốt khoảng debounce, tương đương "đã dừng" theo đúng nghĩa, không phụ
+  // thuộc vào việc native SDK có tự báo đúng hay không.
+  Timer? _organicCheckDebounce;
+  static const _organicCheckDebounceDelay = Duration(milliseconds: 400);
+
+  // setStyle()/animateCamera() của native renderer có thể tự bắn 1-2 sự
+  // kiện camera "settle" thoáng qua ngay sau khi vừa chuyển vùng xong (quan
+  // sát thực tế trên thiết bị: layer cũ bị gỡ giữa chừng gây
+  // PlatformException(layerNotFound) do 2 lần setStyle đè lên nhau) — nếu
+  // toạ độ thoáng qua đó rơi vào vùng khác vùng vừa chuyển tới, logic tự
+  // động phát hiện vùng (onCameraIdle) sẽ hiểu lầm thành "camera thực sự
+  // sang vùng khác" và bật vòng lặp chuyển vùng qua lại vô hạn. Cooldown này
+  // chặn TỰ ĐỘNG chuyển vùng (không chặn nút bấm — luôn là ý định rõ ràng
+  // của người dùng) trong 1 khoảng ngắn ngay sau 1 lần chuyển vùng bất kỳ.
+  DateTime? _regionSwitchSettledAt;
+  static const _organicSwitchCooldown = Duration(milliseconds: 1500);
+
+  // Timer phòng vệ cho _prepareStyleForRegion — xem [_raceWithTimeout]. Có
+  // thể có NHIỀU timer cùng lúc (vùng ban đầu + 1 lần chuyển vùng khác) nên
+  // dùng Set thay vì 1 field đơn — mỗi timer tự gỡ khỏi Set khi hoàn tất
+  // (dù thắng hay thua cuộc đua), và dispose() huỷ hết phần còn sót lại.
+  // Future.timeout() dựng Timer nội bộ không expose ra ngoài để huỷ, nên
+  // nếu widget bị dispose trước khi platform channel phản hồi, Timer đó vẫn
+  // "pending" tới khi tự bắn — vi phạm invariant "no pending timers" của
+  // flutter_test và làm rớt các test khác chạy ngay sau.
+  final Set<Timer> _pendingTimeoutTimers = {};
 
   @override
   void initState() {
@@ -202,20 +280,25 @@ class _PropertyMapViewState extends State<PropertyMapView> {
 
   Future<T> _raceWithTimeout<T>(Future<T> future, Duration timeout) {
     final completer = Completer<T>();
-    _assetTimeoutTimer = Timer(timeout, () {
+    late final Timer timer;
+    timer = Timer(timeout, () {
+      _pendingTimeoutTimers.remove(timer);
       if (!completer.isCompleted) {
         completer.completeError(
           TimeoutException('Local map asset setup timed out after $timeout'),
         );
       }
     });
+    _pendingTimeoutTimers.add(timer);
     future.then(
       (value) {
-        _assetTimeoutTimer?.cancel();
+        timer.cancel();
+        _pendingTimeoutTimers.remove(timer);
         if (!completer.isCompleted) completer.complete(value);
       },
       onError: (Object error, StackTrace stackTrace) {
-        _assetTimeoutTimer?.cancel();
+        timer.cancel();
+        _pendingTimeoutTimers.remove(timer);
         if (!completer.isCompleted) {
           completer.completeError(error, stackTrace);
         }
@@ -224,36 +307,133 @@ class _PropertyMapViewState extends State<PropertyMapView> {
     return completer.future;
   }
 
+  /// Dựng (hoặc lấy từ cache) style JSON cho [region] — copy PMTiles/fonts ra
+  /// đĩa nếu cần (xem [LocalMapAssetsService]). Cache theo regionId nên
+  /// chuyển qua lại giữa 2 vùng đã từng active (vd. bấm TP.HCM ↔ Hà Nội
+  /// nhiều lần) không phải build/jsonEncode lại từ đầu.
+  Future<String> _prepareStyleForRegion(SupportedMapRegion region) async {
+    final cached = _styleJsonByRegionId[region.id];
+    if (cached != null) return cached;
+    // Timeout phòng vệ: copy asset local bình thường mất dưới 1s (đọc
+    // rootBundle + ghi đĩa), nhưng nếu platform channel (path_provider/
+    // package_info) không phản hồi vì bất kỳ lý do gì (vd. môi trường không
+    // có platform thật), lỗi phải kết thúc CÓ GIỚI HẠN thay vì treo
+    // CircularProgressIndicator (đang animate liên tục) vĩnh viễn.
+    final glyphsTemplate = await _raceWithTimeout(
+      _sharedLocalMapAssets.ensureGlyphsTemplate(),
+      const Duration(seconds: 3),
+    );
+    final pmtilesUrl = await _raceWithTimeout(
+      _sharedLocalMapAssets.ensureRegionPmtilesUrl(region),
+      const Duration(seconds: 3),
+    );
+    final style = buildLocalMapStyle(
+      region: region,
+      pmtilesUrl: pmtilesUrl,
+      glyphsTemplate: glyphsTemplate,
+    );
+    final json = jsonEncode(style);
+    _styleJsonByRegionId[region.id] = json;
+    return json;
+  }
+
   Future<void> _prepareStyle() async {
     final region = MapCoveragePolicy.nearestRegion(widget.initialTarget);
     _activeRegion = region;
     _isOutsideCoverage = !region.contains(widget.initialTarget);
     try {
-      // Timeout phòng vệ: copy asset local bình thường mất dưới 1s (đọc
-      // rootBundle + ghi đĩa), nhưng nếu platform channel (path_provider/
-      // package_info) không phản hồi vì bất kỳ lý do gì (vd. môi trường
-      // không có platform thật), lỗi phải kết thúc CÓ GIỚI HẠN thay vì treo
-      // CircularProgressIndicator (đang animate liên tục) vĩnh viễn.
-      final glyphsTemplate = await _raceWithTimeout(
-        _sharedLocalMapAssets.ensureGlyphsTemplate(),
-        const Duration(seconds: 3),
-      );
-      final pmtilesUrl = await _raceWithTimeout(
-        _sharedLocalMapAssets.ensureRegionPmtilesUrl(region),
-        const Duration(seconds: 3),
-      );
-      final style = buildLocalMapStyle(
-        region: region,
-        pmtilesUrl: pmtilesUrl,
-        glyphsTemplate: glyphsTemplate,
-      );
+      final json = await _prepareStyleForRegion(region);
       if (!mounted) return;
-      setState(() => _styleJson = jsonEncode(style));
+      setState(() => _initialStyleJson = json);
+      // Báo vùng active BAN ĐẦU (không chỉ vùng active sau 1 lần CHUYỂN qua
+      // _switchToRegion) — để UI chọn vùng (MapRegionSelector) tô sáng đúng
+      // ngay từ lần mở đầu tiên, kể cả khi vùng đó tới từ ưu tiên đã lưu
+      // (lastSupportedMapRegionId) chứ không phải người dùng vừa bấm.
+      widget.onRegionChanged?.call(region);
     } catch (error, stackTrace) {
       debugPrint('PropertyMapView: không dựng được style bản đồ local: '
           '$error\n$stackTrace');
       if (!mounted) return;
       setState(() => _mapSetupFailed = true);
+    }
+  }
+
+  /// Chuyển vùng bản đồ active sang [newRegion] — swap style TẠI CHỖ qua
+  /// `controller.setStyle` (không remount MapLibreMap/không mất controller).
+  /// [cameraTarget]/[zoom] khi có (bấm nút chọn vùng) làm camera bay tới đó
+  /// sau khi style mới bắt đầu load; khi null (camera/GPS tự đi vào vùng
+  /// khác lúc pan) giữ nguyên vị trí camera hiện tại — không có lý do di
+  /// chuyển camera vì nó đã ở đúng chỗ rồi.
+  ///
+  /// Runtime overlay (icon marker/price label/current-location) tự phục hồi
+  /// sau khi native side bắn lại sự kiện "style loaded" (native luôn làm
+  /// vậy sau setStyle, xem `_onStyleLoaded`) — không cần gọi lại thủ công ở
+  /// đây. Cache marker/price-layer cục bộ được xoá trước khi setStyle vì
+  /// style/layer cũ trở thành invalid ngay khi setStyle được gọi.
+  Future<void> _switchToRegion(
+    SupportedMapRegion newRegion, {
+    GeoPoint? cameraTarget,
+    double? zoom,
+  }) async {
+    if (_regionSwitchInFlight || newRegion.id == _activeRegion?.id) return;
+    final controller = _controller;
+    if (controller == null) return;
+    _regionSwitchInFlight = true;
+    final generation = ++_regionSwitchGeneration;
+    try {
+      final json = await _prepareStyleForRegion(newRegion);
+      if (generation != _regionSwitchGeneration || !mounted) return;
+      _iconSymbols.clear();
+      _iconSizeByName.clear();
+      _priceLayerReady = false;
+      _lastPriceSignature = null;
+      await controller.setStyle(json);
+      if (generation != _regionSwitchGeneration || !mounted) return;
+      if (cameraTarget != null) {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            LatLng(cameraTarget.latitude, cameraTarget.longitude),
+            zoom ?? newRegion.defaultZoom,
+          ),
+        );
+        if (generation != _regionSwitchGeneration || !mounted) return;
+      }
+      setState(() {
+        _activeRegion = newRegion;
+        _isOutsideCoverage = false;
+      });
+      widget.onRegionChanged?.call(newRegion);
+    } catch (error, stackTrace) {
+      debugPrint('PropertyMapView: chuyển vùng bản đồ thất bại: '
+          '$error\n$stackTrace');
+    } finally {
+      _regionSwitchInFlight = false;
+      _regionSwitchSettledAt = DateTime.now();
+    }
+  }
+
+  /// Kiểm tra vùng chứa [_lastCameraPoint] và tự chuyển vùng NẾU camera đã
+  /// dừng hẳn (gọi từ debounce timer trên onCameraMove — xem
+  /// [_organicCheckDebounce] — KHÔNG dùng onCameraIdle của native SDK vì đã
+  /// kiểm chứng không đáng tin cậy sau các chuyến bay camera dài). Tránh
+  /// phản ứng với toạ độ thoáng qua giữa lúc camera đang bay (kể cả do
+  /// chính animateCamera của [_switchToRegion] gây ra), vốn là nguyên nhân
+  /// gây vòng lặp chuyển vùng qua lại vô hạn quan sát được khi test trên
+  /// thiết bị thật (2 lần setStyle đè lên nhau ném
+  /// PlatformException(layerNotFound)). Cooldown sau mỗi lần chuyển vùng
+  /// (nút bấm lẫn tự động) chặn thêm 1 lớp an toàn cho sự kiện "settle"
+  /// thoáng qua ngay sau khi vừa setStyle xong.
+  void _organicRegionCheck() {
+    final point = _lastCameraPoint;
+    if (point == null || _regionSwitchInFlight) return;
+    final settledAt = _regionSwitchSettledAt;
+    if (settledAt != null &&
+        DateTime.now().difference(settledAt) < _organicSwitchCooldown) {
+      return;
+    }
+    final containingRegion = MapCoveragePolicy.regionContaining(point);
+    if (containingRegion != null && containingRegion.id != _activeRegion?.id) {
+      _switchToRegion(containingRegion);
     }
   }
 
@@ -286,7 +466,11 @@ class _PropertyMapViewState extends State<PropertyMapView> {
 
   @override
   void dispose() {
-    _assetTimeoutTimer?.cancel();
+    for (final timer in _pendingTimeoutTimers) {
+      timer.cancel();
+    }
+    _pendingTimeoutTimers.clear();
+    _organicCheckDebounce?.cancel();
     _controller?.onSymbolTapped.remove(_handleSymbolTap);
     super.dispose();
   }
@@ -520,16 +704,24 @@ class _PropertyMapViewState extends State<PropertyMapView> {
     }
   }
 
+  /// Bấm nút la bàn tự vẽ (xem map_screen.dart) — animate bearing về 0° mà
+  /// KHÔNG đổi center/zoom. `CameraUpdate.bearingTo` chỉ set 1 thuộc tính
+  /// bearing, camera position khác giữ nguyên theo đúng semantics của
+  /// MapLibre (không phải "camera mới" thay thế toàn bộ).
+  void _resetNorth() {
+    _controller?.animateCamera(CameraUpdate.bearingTo(0));
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenPosition = _currentLocationScreenPosition;
-    final styleJson = _styleJson;
+    final styleJson = _initialStyleJson;
     final region = _activeRegion;
     return Stack(
       children: [
         if (styleJson != null && region != null)
           MapLibreMap(
-            key: ValueKey('propnote-map-${region.id}'),
+            key: const ValueKey('propnote-map'),
             styleString: styleJson,
             initialCameraPosition: CameraPosition(
               target: LatLng(
@@ -549,6 +741,7 @@ class _PropertyMapViewState extends State<PropertyMapView> {
             // độ camera/marker KHÔNG bao giờ bị clamp.
             cameraTargetBounds: CameraTargetBounds.unbounded,
             compassEnabled: widget.showCompass && widget.interactive,
+            compassViewMargins: widget.compassViewMargins,
             scrollGesturesEnabled: widget.interactive,
             zoomGesturesEnabled: widget.interactive,
             rotateGesturesEnabled: widget.interactive,
@@ -565,7 +758,9 @@ class _PropertyMapViewState extends State<PropertyMapView> {
             onMapCreated: (controller) {
               _controller = controller;
               controller.onSymbolTapped.add(_handleSymbolTap);
-              widget.onMapReady?.call(PropertyMapController._(controller));
+              widget.onMapReady?.call(
+                PropertyMapController._(controller, _switchToRegion, _resetNorth),
+              );
             },
             onStyleLoadedCallback: _onStyleLoaded,
             onCameraMove: (position) {
@@ -573,12 +768,23 @@ class _PropertyMapViewState extends State<PropertyMapView> {
                 latitude: position.target.latitude,
                 longitude: position.target.longitude,
               );
+              _lastCameraPoint = point;
               widget.onCameraMove?.call(point);
+              // Cập nhật gray/banner theo thời gian thực khi pan (mượt, phản
+              // hồi ngay) — QUYẾT ĐỊNH tự động chuyển vùng thì đợi camera
+              // dừng hẳn (debounce bên dưới) để không phản ứng với toạ độ
+              // thoáng qua giữa lúc đang bay.
               _updateCoverageState(point);
               if (_currentLocationTarget != null) {
                 _refreshCurrentLocationOverlay();
               }
+              _organicCheckDebounce?.cancel();
+              _organicCheckDebounce = Timer(
+                _organicCheckDebounceDelay,
+                _organicRegionCheck,
+              );
             },
+            onCameraIdle: _organicRegionCheck,
           )
         else if (_mapSetupFailed)
           const ColoredBox(

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/services/app_runtime.dart';
 import '../../data/services/location_service.dart';
+import '../../data/services/map/map_coverage_policy.dart';
 import '../../data/services/media_storage.dart';
 import '../../models/contact.dart';
 import '../../models/geo_point.dart';
@@ -33,10 +34,7 @@ import 'widgets/location_picker_screen.dart';
 import 'widgets/photo_picker_grid.dart';
 import 'widgets/status_selector.dart';
 
-const GeoPoint _defaultLocation = GeoPoint(
-  latitude: 21.0285,
-  longitude: 105.8542,
-);
+GeoPoint get _defaultLocation => MapCoveragePolicy.hcm.defaultCenter;
 
 class AddPropertyScreen extends StatefulWidget {
   final Property? existing;
@@ -118,8 +116,18 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       _surveyDate = p.surveyDate;
     } else {
       _surveyDate = DateTime.now();
-      final lastMapLocation = context.read<AppState>().lastMapLocation;
-      if (lastMapLocation != null) _location = lastMapLocation;
+      final appState = context.read<AppState>();
+      final lastMapLocation = appState.lastMapLocation;
+      if (lastMapLocation != null) {
+        _location = lastMapLocation;
+      } else {
+        // Chưa từng có camera/GPS location nào — dùng vùng bản đồ ưu tiên
+        // đã lưu nếu có, else mặc định TP.HCM (_defaultLocation) đã set sẵn.
+        final region = MapCoveragePolicy.regionById(
+          appState.lastSupportedMapRegionId,
+        );
+        if (region != null) _location = region.defaultCenter;
+      }
     }
   }
 

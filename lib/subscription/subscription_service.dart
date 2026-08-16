@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,7 +21,25 @@ const String _entitlementCachePro = 'pro';
 /// `in_app_purchase`). UI không bao giờ gọi `InAppPurchase` trực tiếp —
 /// luôn đi qua service này để sau này có thể thêm server-side receipt
 /// verification mà không phải sửa lại UI/quota architecture.
-class SubscriptionService extends ChangeNotifier {
+///
+/// ## Giới hạn entitlement đã biết (client-side-only, không backend ở 1.0)
+///
+/// Package `in_app_purchase` không có API cross-platform đáng tin cậy để
+/// hỏi thẳng "subscription này còn active không" — cách duy nhất là gọi
+/// [InAppPurchase.restorePurchases] và xem `purchaseStream` có emit giao
+/// dịch nào khớp [proYearlyProductId] hay không. Nếu subscription đã hết
+/// hạn/bị huỷ, restore hoàn tất mà KHÔNG emit gì (im lặng, không phải lỗi)
+/// — xem [_reconcileEntitlement] để biết cách service suy luận "khả năng
+/// cao là hết hạn" từ tín hiệu im lặng đó một cách AN TOÀN NHẤT CÓ THỂ (chỉ
+/// hạ cache Pro lạc quan xuống Free khi restore THỰC SỰ hoàn tất không lỗi
+/// mà vẫn không thấy gì — nếu restore lỗi/timeout, giữ nguyên Pro, thà lỡ
+/// 1 lần chưa hạ kịp còn hơn hạ nhầm 1 user Pro thật vì mạng chập chờn).
+/// Đây KHÔNG phải xác nhận 100% chắc chắn theo thời gian thực (vd. hết hạn
+/// giữa 2 lần mở app sẽ chỉ được phát hiện ở lần mở/resume kế tiếp, không
+/// phải ngay lúc hết hạn) — nếu cần độ chính xác/real-time cao hơn, cần
+/// server-side receipt verification (App Store Server API / Play Developer
+/// API/RTDN) ở phase sau.
+class SubscriptionService extends ChangeNotifier with WidgetsBindingObserver {
   final InAppPurchase _iap;
   final AppRepository? _repository;
 
@@ -36,6 +54,13 @@ class SubscriptionService extends ChangeNotifier {
   /// (product == null && !productUnavailable) để paywall không hiện spinner
   /// vô hạn khi thực ra không còn gì để chờ. Xem [PaywallScreen].
   bool _productUnavailable = false;
+
+  /// true ngay khi purchaseStream thực sự emit ÍT NHẤT 1 giao dịch khớp
+  /// [proYearlyProductId] (bất kể trạng thái) — phân biệt "store đã xác
+  /// nhận điều gì đó" với "vẫn chỉ đang hiện giá trị cache lạc quan lúc
+  /// khởi động, chưa được store xác nhận lại". Dùng bởi
+  /// [_reconcileEntitlement].
+  bool _entitlementConfirmedByStore = false;
 
   SubscriptionService({InAppPurchase? inAppPurchase, this._repository})
     : _iap = inAppPurchase ?? InAppPurchase.instance;
@@ -65,6 +90,7 @@ class SubscriptionService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
     _initialized = true;
+    WidgetsBinding.instance.addObserver(this);
 
     final cached = await _readCachedEntitlement();
     if (cached) {
@@ -98,14 +124,60 @@ class SubscriptionService extends ChangeNotifier {
 
     await _loadProduct();
 
-    // Đối chiếu entitlement thật từ store. Nếu không có gì để restore,
-    // purchaseStream đơn giản là không bắn event nào — không có API nào
-    // của in_app_purchase xác nhận "chắc chắn không có purchase" mà không
-    // qua receipt server-side, nên nếu chưa có cache Pro, mặc định về Free
-    // ngay sau khi phát lệnh restore thay vì treo mãi ở "unknown".
-    unawaited(_iap.restorePurchases());
     if (!cached && _state.tier == SubscriptionTier.unknown) {
+      // Chưa từng có cache Pro nào — không có entitlement lạc quan nào để
+      // đối chiếu, mặc định Free ngay (không cần chờ restore) để UI không
+      // treo ở "unknown".
       _state = SubscriptionState.free(localizedPrice: _product?.price);
+      notifyListeners();
+    }
+
+    // Đối chiếu entitlement thật từ store — xem giới hạn/logic chi tiết ở
+    // doc comment của class và [_reconcileEntitlement].
+    unawaited(_reconcileEntitlement());
+  }
+
+  /// Gọi lại khi app quay lại foreground — bắt các trường hợp subscription
+  /// hết hạn/bị huỷ TRONG LÚC app đang ở background (StoreKit/Play Billing
+  /// không tự đẩy thông báo hết hạn về app đang chạy nền) — lần mở/resume
+  /// kế tiếp sẽ tự đối chiếu lại, xem giới hạn ở doc comment của class.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _initialized) {
+      unawaited(_reconcileEntitlement());
+    }
+  }
+
+  /// Đối chiếu entitlement với trạng thái thật từ store qua
+  /// [InAppPurchase.restorePurchases] — xem giới hạn chi tiết ở doc comment
+  /// của class. LUÔN gọi restore bất kể cache hiện tại: đây là cách DUY
+  /// NHẤT client-side phát hiện đúng 1 user Pro thật nhưng KHÔNG có cache
+  /// local (cài lại app/đổi thiết bị — cache Pro cũ không theo qua được).
+  /// AN TOÀN CÓ CHỦ ĐÍCH cho chiều ngược lại: chỉ hạ Pro cache LẠC QUAN sẵn
+  /// có xuống Free khi restore THỰC SỰ hoàn tất (không lỗi/timeout) mà
+  /// purchaseStream vẫn không xác nhận giao dịch nào — nếu restore lỗi/
+  /// timeout (vd. offline), GIỮ NGUYÊN trạng thái hiện tại, không suy diễn
+  /// hết hạn từ một request mạng thất bại.
+  Future<void> _reconcileEntitlement() async {
+    final hadOptimisticPro = _state.tier == SubscriptionTier.pro;
+    _entitlementConfirmedByStore = false;
+    try {
+      await _iap.restorePurchases().timeout(const Duration(seconds: 8));
+    } catch (error) {
+      debugPrint('Đối chiếu subscription qua restorePurchases thất bại '
+          '(giữ nguyên entitlement hiện tại, không suy diễn hết hạn từ lỗi '
+          'mạng): $error');
+      return;
+    }
+    // Cho purchaseStream một khoảng ngắn để các event (nếu có) kịp truyền
+    // tới — Future của restorePurchases() hoàn tất không đảm bảo mọi event
+    // stream tương ứng đã propagate xong trên mọi platform.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (hadOptimisticPro &&
+        !_entitlementConfirmedByStore &&
+        _state.tier == SubscriptionTier.pro) {
+      _state = SubscriptionState.free(localizedPrice: _product?.price);
+      await _writeCachedEntitlement(isPro: false);
       notifyListeners();
     }
   }
@@ -191,6 +263,10 @@ class SubscriptionService extends ChangeNotifier {
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
       if (purchase.productID != proYearlyProductId) continue;
+      // Store đã thực sự nói gì đó về sản phẩm này (bất kể trạng thái) —
+      // đánh dấu để [_reconcileEntitlement] biết đây không còn là cache lạc
+      // quan chưa được xác nhận nữa.
+      _entitlementConfirmedByStore = true;
       switch (purchase.status) {
         case PurchaseStatus.pending:
           _state = SubscriptionState.pending(localizedPrice: _product?.price);
@@ -236,6 +312,7 @@ class SubscriptionService extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_initialized) WidgetsBinding.instance.removeObserver(this);
     _purchaseSubscription?.cancel();
     super.dispose();
   }

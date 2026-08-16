@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
@@ -36,6 +37,7 @@ class _FakePurchasePlatform extends Fake
   List<String> notFoundIds = [];
   int restoreCallCount = 0;
   int buyCallCount = 0;
+  bool throwOnRestore = false;
 
   @override
   Future<bool> isAvailable() async => available;
@@ -65,6 +67,9 @@ class _FakePurchasePlatform extends Fake
   @override
   Future<void> restorePurchases({String? applicationUserName}) async {
     restoreCallCount++;
+    if (throwOnRestore) {
+      throw StateError('simulated network failure during restore');
+    }
   }
 
   void emit(PurchaseDetails purchase) => _controller.add([purchase]);
@@ -245,4 +250,115 @@ void main() {
       expect(service.isPro, isFalse);
     },
   );
+
+  group('entitlement reconciliation hardening', () {
+    test(
+      'cached Pro + restore completes with no purchase confirmed → '
+      'downgrades to Free (subscription actually expired/cancelled since '
+      'last launch, but no server verification exists to know that '
+      'directly — restorePurchases() silently finding nothing is the only '
+      'client-side signal available)',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        final service = buildService();
+
+        await service.initialize();
+        expect(service.state.tier, SubscriptionTier.pro);
+
+        // _reconcileEntitlement is unawaited inside initialize() — give it
+        // time to call restorePurchases(), wait its internal grace period,
+        // and downgrade.
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.state.tier, SubscriptionTier.free);
+        expect(service.isPro, isFalse);
+        expect(fakeRepository.settings['subscription_entitlement_cache'], 'free');
+      },
+    );
+
+    test(
+      'cached Pro + restorePurchases() throws (e.g. offline) → stays Pro, '
+      'never downgrades from a failed network request alone',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        fakePlatform.throwOnRestore = true;
+        final service = buildService();
+
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.state.tier, SubscriptionTier.pro);
+        expect(service.isPro, isTrue);
+      },
+    );
+
+    test(
+      'cached Pro + store unavailable → stays Pro (no restore attempted at '
+      'all, matches existing "store unavailable" fallback)',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.available = false;
+        final service = buildService();
+
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.isPro, isTrue);
+      },
+    );
+
+    test(
+      'no cache but store actually has an active purchase (reinstall/new '
+      'device scenario) → restore still runs and picks it up as Pro',
+      () async {
+        fakePlatform.products = [_proProduct()];
+        final service = buildService();
+
+        final initFuture = service.initialize();
+        await initFuture;
+        // Store "discovers" the restored purchase shortly after restore is
+        // requested — simulates a real reinstall where the device has no
+        // local cache but the App Store/Play account does have an active
+        // subscription.
+        fakePlatform.emit(_purchase(PurchaseStatus.restored));
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.state.tier, SubscriptionTier.pro);
+        expect(service.isPro, isTrue);
+        expect(fakePlatform.restoreCallCount, greaterThanOrEqualTo(1));
+      },
+    );
+
+    test(
+      'app resume triggers reconciliation again — a cached Pro user whose '
+      'subscription lapsed while the app sat in the background gets '
+      'downgraded on the next resume, not just at cold start',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        final service = buildService();
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        // Cold-start reconciliation already ran and found nothing to
+        // confirm — state is already Free at this point (covered by the
+        // dedicated test above). Reset the fake's call counter and put the
+        // cache/state back into an "optimistic Pro" shape as if a fresh
+        // cold start just happened, then simulate a resume directly.
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        service.debugSetState(const SubscriptionState.pro());
+        final restoreCallsBeforeResume = fakePlatform.restoreCallCount;
+
+        service.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(
+          fakePlatform.restoreCallCount,
+          greaterThan(restoreCallsBeforeResume),
+        );
+        expect(service.state.tier, SubscriptionTier.free);
+      },
+    );
+  });
 }

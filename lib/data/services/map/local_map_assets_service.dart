@@ -43,6 +43,12 @@ class LocalMapAssetsService {
     return marker;
   }
 
+  /// [versionFile] chỉ được ghi SAU KHI [target] đã ghi xong hoàn toàn (xem
+  /// [_copyAssetToFile]) — tự nó đã là 1 "commit marker": nếu app bị kill
+  /// giữa lúc copy target (file PMTiles ~50MB có thể mất >0), versionFile
+  /// sẽ KHÔNG tồn tại ở lần mở tiếp theo, nên hàm này trả true (cần copy
+  /// lại) và ghi đè file dở dang đó — tự phục hồi mà không cần logic dọn
+  /// dẹp riêng cho trường hợp "app bị kill giữa chừng".
   Future<bool> _needsCopy(File target, File versionFile) async {
     if (!await target.exists() || await target.length() == 0) return true;
     if (!await versionFile.exists()) return true;
@@ -50,16 +56,26 @@ class LocalMapAssetsService {
     return storedMarker != await _currentAppVersionMarker();
   }
 
+  /// Ghi ATOMIC: copy ra file TẠM trong CÙNG thư mục với [target] rồi
+  /// `rename()` đè lên [target] — rename trong cùng thư mục là 1 syscall
+  /// nguyên tử ở cả iOS/Android, nên [target] không bao giờ ở trạng thái
+  /// "đang ghi dở" mà vẫn được coi là tồn tại — mạnh hơn cơ chế tự phục hồi
+  /// qua [versionFile] (xem doc comment ở đó) chứ không thay thế nó: 2 lớp
+  /// bảo vệ độc lập cho cùng 1 rủi ro "app bị kill giữa chừng khi copy".
   Future<void> _copyAssetToFile(
     String assetPath,
     File target,
     File versionFile,
   ) async {
     final data = await rootBundle.load(assetPath);
-    await target.writeAsBytes(
-      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    final tempFile = File('${target.path}.tmp-${DateTime.now().microsecondsSinceEpoch}');
+    await tempFile.writeAsBytes(bytes, flush: true);
+    await tempFile.rename(target.path);
+    await versionFile.writeAsString(
+      await _currentAppVersionMarker(),
+      flush: true,
     );
-    await versionFile.writeAsString(await _currentAppVersionMarker());
   }
 
   /// Copy 3 range glyph PBF dùng chung cho mọi vùng — trả về glyphs URL
