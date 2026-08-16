@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:math' show Point;
 
 import 'package:flutter/material.dart';
@@ -97,7 +98,7 @@ class _MapScreenState extends State<MapScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   _StatusFilter _filter = _StatusFilter.all;
-  MapAdvancedFilter _advancedFilter = const MapAdvancedFilter();
+  late MapAdvancedFilter _advancedFilter;
   String _query = '';
   PropertyMapController? _mapController;
   GeoPoint? _currentGeoLocation;
@@ -115,6 +116,20 @@ class _MapScreenState extends State<MapScreen> {
   /// (không persist qua restart), tách biệt với [AppState.lastMapLocation]
   /// vốn vẫn luôn được cập nhật mỗi lần lấy GPS thành công.
   bool _showCurrentLocationMarker = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // showPrice/showPriceUnit là lựa chọn đã persist qua AppState (mục 3) —
+    // các trường filter khác (giá/loại BĐS) cố tình KHÔNG persist, chỉ áp
+    // dụng trong phiên hiện tại, nên vẫn khởi tạo từ default của
+    // MapAdvancedFilter.
+    final appState = context.read<AppState>();
+    _advancedFilter = MapAdvancedFilter(
+      showPrice: appState.showPrice,
+      showPriceUnit: appState.showPriceUnit,
+    );
+  }
 
   @override
   void dispose() {
@@ -266,6 +281,7 @@ class _MapScreenState extends State<MapScreen> {
                     onChanged: (v) => setState(() => _query = v),
                     trailing: InkWell(
                       onTap: () async {
+                        final appState = context.read<AppState>();
                         final selected = await showAdvancedFilterSheet(
                           context,
                           initial: _advancedFilter,
@@ -274,6 +290,10 @@ class _MapScreenState extends State<MapScreen> {
                         );
                         if (selected != null && mounted) {
                           setState(() => _advancedFilter = selected);
+                          unawaited(appState.setShowPrice(selected.showPrice));
+                          unawaited(
+                            appState.setShowPriceUnit(selected.showPriceUnit),
+                          );
                         }
                       },
                       customBorder: const CircleBorder(),

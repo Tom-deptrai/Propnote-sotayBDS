@@ -400,7 +400,15 @@ class _PropertyMapViewState extends State<PropertyMapView> {
       }
       setState(() {
         _activeRegion = newRegion;
-        _isOutsideCoverage = false;
+        // Tính coverage dựa trên điểm đến CUỐI CÙNG thật sự (cameraTarget
+        // khi bấm nút — luôn nằm trong newRegion vì là defaultCenter của
+        // chính nó; hoặc _lastCameraPoint khi chuyển vùng tự động — cũng
+        // luôn nằm trong newRegion vì đó chính là điều kiện kích hoạt
+        // switch, xem [_organicRegionCheck]) — không hardcode false, để
+        // đúng ngay cả nếu sau này có caller truyền cameraTarget khác.
+        final finalPoint = cameraTarget ?? _lastCameraPoint;
+        _isOutsideCoverage =
+            finalPoint != null && !newRegion.contains(finalPoint);
       });
       widget.onRegionChanged?.call(newRegion);
     } catch (error, stackTrace) {
@@ -773,8 +781,19 @@ class _PropertyMapViewState extends State<PropertyMapView> {
               // Cập nhật gray/banner theo thời gian thực khi pan (mượt, phản
               // hồi ngay) — QUYẾT ĐỊNH tự động chuyển vùng thì đợi camera
               // dừng hẳn (debounce bên dưới) để không phản ứng với toạ độ
-              // thoáng qua giữa lúc đang bay.
-              _updateCoverageState(point);
+              // thoáng qua giữa lúc đang bay. BỎ QUA hoàn toàn khi đang có 1
+              // lần chuyển vùng CHỦ ĐỘNG (nút bấm/tự động) đang chạy: style
+              // đã đổi sang vùng MỚI nhưng `_activeRegion` (Dart-side) chỉ
+              // cập nhật SAU KHI animateCamera hoàn tất — nếu không chặn,
+              // các frame camera TRUNG GIAN trong lúc bay (vẫn đang so với
+              // `_activeRegion` CŨ) sẽ bật nhầm banner "chưa hỗ trợ" dù màn
+              // hình đã hiển thị đúng vùng mới, chỉ tự hết khi có thao tác
+              // pan/chạm tiếp theo gọi lại _updateCoverageState với
+              // `_activeRegion` đã đúng. [_switchToRegion] tự tính coverage
+              // ĐÚNG 1 LẦN dựa trên điểm đến cuối cùng ngay khi switch xong.
+              if (!_regionSwitchInFlight) {
+                _updateCoverageState(point);
+              }
               if (_currentLocationTarget != null) {
                 _refreshCurrentLocationOverlay();
               }

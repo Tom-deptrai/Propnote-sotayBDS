@@ -124,4 +124,63 @@ void main() {
       await temporary.delete(recursive: true);
     }
   });
+
+  test(
+    'showPrice/showPriceUnit default to true on fresh install, and persist '
+    'the user\'s choice (including OFF) across a full database reopen',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'propnote_show_price_test_',
+      );
+      try {
+        final directories = await AppDirectories.create(
+          rootPath: temporary.path,
+        );
+        var database = AppDatabase(
+          directories: directories,
+          factory: databaseFactoryFfi,
+        );
+        var state = AppState(repository: SqliteAppRepository(database));
+        await state.initialize();
+
+        // Fresh install — chưa có setting nào — mặc định phải là true/true.
+        expect(state.showPrice, isTrue);
+        expect(state.showPriceUnit, isTrue);
+
+        await state.setShowPrice(false);
+        expect(state.showPrice, isFalse);
+        await database.close();
+
+        database = AppDatabase(
+          directories: directories,
+          factory: databaseFactoryFfi,
+        );
+        state = AppState(repository: SqliteAppRepository(database));
+        await state.initialize();
+
+        // Lựa chọn OFF của user phải sống sót qua 1 lần đóng/mở lại DB.
+        expect(state.showPrice, isFalse);
+        expect(state.showPriceUnit, isTrue);
+
+        await state.setShowPriceUnit(false);
+        await state.setShowPrice(true);
+        expect(state.showPrice, isTrue);
+        expect(state.showPriceUnit, isFalse);
+        await database.close();
+
+        database = AppDatabase(
+          directories: directories,
+          factory: databaseFactoryFfi,
+        );
+        state = AppState(repository: SqliteAppRepository(database));
+        await state.initialize();
+
+        expect(state.showPrice, isTrue);
+        expect(state.showPriceUnit, isFalse);
+        await database.close();
+      } finally {
+        await temporary.delete(recursive: true);
+      }
+    },
+  );
 }

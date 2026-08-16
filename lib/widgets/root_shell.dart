@@ -36,7 +36,10 @@ class _RootShellState extends State<RootShell> {
       countedPropertyTotal: countedTotal,
     );
     if (!canCreate) {
-      final upgraded = await showPaywallScreen(context);
+      final upgraded = await showPaywallScreen(
+        context,
+        reason: PaywallReason.quotaReached,
+      );
       if (!upgraded || !mounted) return;
       // Mua Pro thành công ngay tại paywall — tiếp tục mở Add Property luôn
       // để người dùng không phải bấm lại nút "+" lần nữa.

@@ -420,7 +420,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
         countedPropertyTotal: countedTotal,
       );
       if (!canCreate) {
-        final upgraded = await showPaywallScreen(context);
+        final upgraded = await showPaywallScreen(
+          context,
+          reason: PaywallReason.quotaReached,
+        );
         if (!upgraded || !mounted) return;
       }
     }

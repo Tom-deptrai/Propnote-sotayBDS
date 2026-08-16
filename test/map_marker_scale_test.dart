@@ -117,8 +117,8 @@ void main() {
   });
 
   testWidgets(
-    'show-price toggle reveals the unit sub-toggle and both round-trip '
-    'through apply',
+    'fresh sheet defaults to show-price + show-unit ON, and turning '
+    'show-price off hides the unit sub-toggle',
     (tester) async {
       final state = AppState();
       MapAdvancedFilter? result;
@@ -143,21 +143,63 @@ void main() {
       await tester.tap(find.text('Mở'));
       await tester.pumpAndSettle();
 
+      // Product default (mục 2): showPrice + showPriceUnit đều ON ngay khi
+      // mở sheet lần đầu (không có initial nào khác) — unit sub-toggle phải
+      // hiện sẵn, không ẩn như hành vi cũ.
       expect(find.text('Hiển thị giá'), findsOneWidget);
-      expect(find.text('Hiển thị đơn vị tỷ'), findsNothing);
+      expect(find.text('Hiển thị đơn vị tỷ'), findsOneWidget);
 
       await tester.tap(find.text('Hiển thị giá'));
       await tester.pumpAndSettle();
-      expect(find.text('Hiển thị đơn vị tỷ'), findsOneWidget);
+      expect(find.text('Hiển thị đơn vị tỷ'), findsNothing);
 
-      await tester.tap(find.text('Hiển thị đơn vị tỷ'));
+      await tester.tap(find.text('Áp dụng'));
       await tester.pumpAndSettle();
+
+      expect(result?.showPrice, isFalse);
+      expect(result?.showPriceUnit, isTrue);
+    },
+  );
+
+  testWidgets(
+    'reset button restores showPrice/showPriceUnit to the new ON/ON default',
+    (tester) async {
+      final state = AppState();
+      MapAdvancedFilter? result;
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: state,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () async {
+                    result = await showAdvancedFilterSheet(
+                      context,
+                      initial: const MapAdvancedFilter(showPrice: false),
+                    );
+                  },
+                  child: const Text('Mở'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Mở'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hiển thị đơn vị tỷ'), findsNothing);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Đặt lại'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hiển thị đơn vị tỷ'), findsOneWidget);
 
       await tester.tap(find.text('Áp dụng'));
       await tester.pumpAndSettle();
 
       expect(result?.showPrice, isTrue);
-      expect(result?.showPriceUnit, isFalse);
+      expect(result?.showPriceUnit, isTrue);
     },
   );
 
@@ -165,7 +207,7 @@ void main() {
     'MapAdvancedFilter.isDefault accounts for the price display toggles',
     () {
       expect(const MapAdvancedFilter().isDefault, isTrue);
-      expect(const MapAdvancedFilter(showPrice: true).isDefault, isFalse);
+      expect(const MapAdvancedFilter(showPrice: false).isDefault, isFalse);
       expect(const MapAdvancedFilter(showPriceUnit: false).isDefault, isFalse);
     },
   );

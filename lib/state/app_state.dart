@@ -30,6 +30,8 @@ class AppState extends ChangeNotifier {
   double _markerScale = markerScaleDefault;
   GeoPoint? _lastMapLocation;
   String? _lastSupportedMapRegionId;
+  bool _showPrice = true;
+  bool _showPriceUnit = true;
   Future<void> _settingWrite = Future.value();
   bool _isLoading = false;
   bool _isInitialized = false;
@@ -41,6 +43,8 @@ class AppState extends ChangeNotifier {
   static const String _lastMapLocationKey = 'last_map_location';
   static const String _lastSupportedMapRegionKey =
       'last_supported_map_region';
+  static const String _showPriceKey = 'map_show_price';
+  static const String _showPriceUnitKey = 'map_show_price_unit';
 
   AppState({AppRepository? repository, this.mediaStorage, Uuid? uuid})
     : _repository = repository,
@@ -116,6 +120,14 @@ class AppState extends ChangeNotifier {
       _lastSupportedMapRegionId = await _repository.readSetting(
         _lastSupportedMapRegionKey,
       );
+      final showPriceRaw = await _repository.readSetting(_showPriceKey);
+      if (showPriceRaw != null) _showPrice = showPriceRaw == 'true';
+      final showPriceUnitRaw = await _repository.readSetting(
+        _showPriceUnitKey,
+      );
+      if (showPriceUnitRaw != null) {
+        _showPriceUnit = showPriceUnitRaw == 'true';
+      }
       _isInitialized = true;
     } catch (error) {
       _lastError = error;
@@ -216,6 +228,50 @@ class AppState extends ChangeNotifier {
     _settingWrite = write.catchError((_) {});
     return write.catchError((_) {
       // Vùng bản đồ ưu tiên chỉ là tiện ích UX — lỗi ghi không cần rethrow
+      // lên UI, giữ nguyên giá trị đã cập nhật trong bộ nhớ.
+    });
+  }
+
+  /// Bật/tắt hiển thị giá trên marker bản đồ — mặc định BẬT cho lần cài mới
+  /// (chưa có setting nào), giữ nguyên lựa chọn của người dùng qua các lần
+  /// mở app sau nếu họ chủ động tắt.
+  bool get showPrice => _showPrice;
+
+  /// Bật/tắt hiển thị đơn vị "tỷ" cạnh giá — chỉ có ý nghĩa khi [showPrice]
+  /// đang bật, nhưng vẫn lưu/khôi phục độc lập để giữ đúng lựa chọn cũ của
+  /// người dùng khi họ bật lại [showPrice] sau này.
+  bool get showPriceUnit => _showPriceUnit;
+
+  Future<void> setShowPrice(bool value) {
+    if (_showPrice == value) return Future.value();
+    _showPrice = value;
+    notifyListeners();
+
+    final repository = _repository;
+    if (repository == null) return Future.value();
+    final write = _settingWrite.then(
+      (_) => repository.writeSetting(_showPriceKey, value.toString()),
+    );
+    _settingWrite = write.catchError((_) {});
+    return write.catchError((_) {
+      // Lựa chọn hiển thị giá chỉ là tiện ích UX — lỗi ghi không cần
+      // rethrow lên UI, giữ nguyên giá trị đã cập nhật trong bộ nhớ.
+    });
+  }
+
+  Future<void> setShowPriceUnit(bool value) {
+    if (_showPriceUnit == value) return Future.value();
+    _showPriceUnit = value;
+    notifyListeners();
+
+    final repository = _repository;
+    if (repository == null) return Future.value();
+    final write = _settingWrite.then(
+      (_) => repository.writeSetting(_showPriceUnitKey, value.toString()),
+    );
+    _settingWrite = write.catchError((_) {});
+    return write.catchError((_) {
+      // Lựa chọn đơn vị giá chỉ là tiện ích UX — lỗi ghi không cần rethrow
       // lên UI, giữ nguyên giá trị đã cập nhật trong bộ nhớ.
     });
   }

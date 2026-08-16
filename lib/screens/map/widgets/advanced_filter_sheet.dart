@@ -17,7 +17,7 @@ class MapAdvancedFilter {
     this.minimumPriceBillions = 0,
     this.maximumPriceBillions = 50,
     this.propertyTypes = const {},
-    this.showPrice = false,
+    this.showPrice = true,
     this.showPriceUnit = true,
   });
 
@@ -25,7 +25,7 @@ class MapAdvancedFilter {
       minimumPriceBillions == 0 &&
       maximumPriceBillions == 50 &&
       propertyTypes.isEmpty &&
-      showPrice == false &&
+      showPrice == true &&
       showPriceUnit == true;
 }
 
@@ -247,7 +247,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         setState(() {
                           _price = const RangeValues(0, 50);
                           _types.clear();
-                          _showPrice = false;
+                          _showPrice = true;
                           _showPriceUnit = true;
                         });
                         state.resetMarkerScale();
