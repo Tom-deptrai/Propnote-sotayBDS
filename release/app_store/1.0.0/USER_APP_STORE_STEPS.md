@@ -24,15 +24,19 @@ UI) — theo đúng thứ tự nên làm.
   Theo đúng `SUBSCRIPTION_SETUP.md` trong cùng thư mục — copy chính xác
   Product ID, duration, giá, mô tả tiếng Việt.
 
-- [ ] **4. Host `privacy-policy.html` công khai**
+- [ ] **4. Host Privacy / Terms / Support công khai**
   Theo `PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md` — cách nhanh nhất là
-  GitHub Pages, chỉ mất ~5 phút. Nhớ điền email hỗ trợ thật vào file HTML
-  trước khi publish.
+  GitHub Pages, chỉ mất ~5 phút, publish nguyên bộ `site/` (đã có
+  `index.html`, `privacy.html`, `terms.html`, `support.html`, email hỗ trợ
+  `Timeforwork789@icloud.com` đã điền sẵn — không cần sửa gì trong HTML
+  trước khi publish).
 
 - [ ] **5. Điền metadata theo `APP_STORE_METADATA_VI.md`**
   Copy-paste trực tiếp: App Name, Subtitle, Description, Keywords,
-  Category, Copyright, Release Notes. Điền 3 placeholder còn thiếu:
-  Support URL, Privacy Policy URL (từ bước 4), và Marketing URL nếu muốn.
+  Category, Copyright, Release Notes. Điền 2 URL còn thiếu sau bước 4:
+  Support URL và Privacy Policy URL. Marketing URL để trống nếu chưa có
+  trang riêng. Xem thêm mục "Terms of Use (EULA)" trong file này để chọn
+  dùng Apple Standard EULA hoặc URL `terms.html` riêng của PropNote.
 
 - [ ] **6. Upload screenshots**
   Theo `SCREENSHOT_PLAN.md` — cần bạn tự chụp (hoặc yêu cầu Claude chụp ở
@@ -68,10 +72,13 @@ UI) — theo đúng thứ tự nên làm.
 
 ## Export IPA từ archive đã build sẵn
 
-Claude đã tạo sẵn archive tại:
+Claude đã tạo sẵn archive (build mới nhất, khuyến nghị dùng bản này) tại:
 ```
-build/appstore/PropNote-1.0.0.xcarchive
+build/appstore/PropNote-1.0.0-build2.xcarchive
 ```
+(Build 1, `build/appstore/PropNote-1.0.0.xcarchive`, vẫn còn nếu bạn cần
+đối chiếu — nhưng build 2 là bản có đủ fix dung lượng + compliance settings
+nên nên dùng bản build 2 để nộp.)
 
 Máy hiện tại **chưa có Apple Distribution certificate** (chỉ có Development
 certificate), nên Claude **không tự export được IPA** — export cần đăng

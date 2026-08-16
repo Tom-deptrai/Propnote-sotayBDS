@@ -103,10 +103,19 @@ Business
 Productivity
 ```
 
+## Support Email (đã xác nhận)
+
+```
+Timeforwork789@icloud.com
+```
+
 ## Support URL
 
 ```
-[SUPPORT URL CẦN ĐIỀN — vd. trang GitHub repo hoặc trang liên hệ]
+[SUPPORT URL CẦN ĐIỀN SAU KHI PUBLISH — trỏ tới support.html, xem
+PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md. File đã sẵn sàng ở
+release/app_store/1.0.0/support.html (hoặc site/support.html), chỉ còn
+thiếu bước host công khai.]
 ```
 
 ## Marketing URL (tuỳ chọn — có thể để trống nếu chưa có trang riêng)
@@ -118,9 +127,26 @@ Productivity
 ## Privacy Policy URL
 
 ```
-[PRIVACY POLICY URL CẦN ĐIỀN — xem privacy-policy.html +
-PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md trong cùng thư mục này]
+[PRIVACY POLICY URL CẦN ĐIỀN SAU KHI PUBLISH — trỏ tới privacy-policy.html,
+xem PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md trong cùng thư mục này. File đã
+sẵn sàng, chỉ còn thiếu bước host công khai.]
 ```
+
+## Terms of Use (EULA)
+
+PropNote không có điều khoản đặc thù nào khác biệt với EULA chuẩn của Apple
+(không có tính năng UGC công khai, không có giao dịch giữa người dùng với
+nhau). Có 2 lựa chọn hợp lệ:
+
+1. **Dùng Apple Standard EULA** (mặc định, không cần điền gì thêm trong App
+   Store Connect) — đủ cho PropNote vì app không cần điều khoản tuỳ chỉnh
+   ngoài nội dung đã có trong `terms-of-use.html`/`kTermsOfUseText`.
+2. Hoặc điền URL `terms-of-use.html` (sau khi publish) vào mục **License
+   Agreement** trong App Store Connect nếu bạn muốn Apple hiển thị đúng
+   trang điều khoản riêng của PropNote thay vì EULA chuẩn.
+
+Cả 2 lựa chọn đều hợp lệ — trang `terms-of-use.html` đã sẵn sàng cho lựa
+chọn 2 nếu bạn chọn dùng nó.
 
 ## Copyright
 

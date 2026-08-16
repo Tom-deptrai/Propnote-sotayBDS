@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/services/app_runtime.dart';
+import '../../data/services/storage_usage_service.dart';
 import '../../state/app_state.dart';
 import '../../subscription/paywall_screen.dart';
 import '../../subscription/subscription_service.dart';
@@ -14,8 +15,10 @@ import '../../utils/app_messenger.dart';
 import '../../widgets/confirm_dialog.dart';
 import 'area_management_screen.dart';
 import 'static_info_screen.dart';
+import 'support_screen.dart';
 import 'trash_screen.dart';
 import 'widgets/settings_tile.dart';
+import 'widgets/storage_usage_tile.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -75,13 +78,6 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -109,20 +105,19 @@ class SettingsScreen extends StatelessWidget {
                   label: 'Khôi phục dữ liệu',
                   onTap: () => _restoreBackup(context),
                 ),
-                SettingsTile(
-                  icon: Icons.pie_chart_outline_rounded,
-                  label: 'Dung lượng đang sử dụng',
-                  trailingWidget: runtime == null
-                      ? const Text('—')
-                      : FutureBuilder<int>(
-                          future: runtime.directories.totalSize(),
-                          builder: (context, snapshot) => Text(
-                            snapshot.hasData
-                                ? _formatBytes(snapshot.data!)
-                                : 'Đang tính...',
-                          ),
-                        ),
-                ),
+                if (runtime == null)
+                  const SettingsTile(
+                    icon: Icons.pie_chart_outline_rounded,
+                    label: 'Dung lượng đang sử dụng',
+                    trailingText: '—',
+                  )
+                else
+                  StorageUsageTile(
+                    key: ValueKey(runtime.directories.rootPath),
+                    service: StorageUsageService.forDirectories(
+                      runtime.directories,
+                    ),
+                  ),
                 SettingsTile(
                   icon: Icons.delete_outline_rounded,
                   label: 'Thùng rác',
@@ -170,6 +165,25 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 SettingsTile(
+                  icon: Icons.apartment_rounded,
+                  label: 'Giới thiệu PropNote',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StaticInfoScreen(
+                        title: 'Giới thiệu PropNote',
+                        body: kAboutText,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SettingsSection(
+              title: 'Pháp lý & hỗ trợ',
+              children: [
+                SettingsTile(
                   icon: Icons.privacy_tip_outlined,
                   label: 'Chính sách riêng tư',
                   onTap: () => Navigator.push(
@@ -183,16 +197,24 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 SettingsTile(
-                  icon: Icons.apartment_rounded,
-                  label: 'Giới thiệu PropNote',
+                  icon: Icons.description_outlined,
+                  label: 'Điều khoản sử dụng',
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const StaticInfoScreen(
-                        title: 'Giới thiệu PropNote',
-                        body: kAboutText,
+                        title: 'Điều khoản sử dụng',
+                        body: kTermsOfUseText,
                       ),
                     ),
+                  ),
+                ),
+                SettingsTile(
+                  icon: Icons.support_agent_outlined,
+                  label: 'Hỗ trợ & liên hệ',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SupportScreen()),
                   ),
                 ),
               ],

@@ -33,8 +33,18 @@ PropNote là ứng dụng local-first: toàn bộ dữ liệu bất động sả
 Dữ liệu và quyền truy cập
 - Vị trí (GPS): dùng để đặt ghim và xác định toạ độ cho từng bất động sản khi bạn chọn "Vị trí hiện tại". Chỉ dùng khi bạn đang mở ứng dụng, không thu thập vị trí nền.
 - Camera / thư viện ảnh: dùng để chụp hoặc chọn ảnh, tài liệu đính kèm cho bất động sản.
-- Microphone / nhận dạng giọng nói: dùng để chuyển giọng nói thành văn bản khi bạn nhập tên hoặc ghi chú bằng giọng nói. Việc nhận dạng giọng nói do hệ điều hành (iOS/Android) xử lý.
-- Bản đồ: PropNote sử dụng dữ liệu bản đồ được đóng gói cục bộ trong ứng dụng cho các khu vực được hỗ trợ (hiện tại: TP.HCM, Hà Nội) — bản đồ nền không yêu cầu gửi vị trí của bạn tới máy chủ bản đồ để hiển thị, và không tải dữ liệu bản đồ qua Internet. Ngoài các khu vực này, bản đồ hiển thị nền trống kèm thông báo "Bản đồ chưa hỗ trợ khu vực này" — toạ độ bất động sản của bạn vẫn được lưu và sử dụng bình thường dù ở bất kỳ đâu. Khi bạn dùng tính năng chỉ đường, PropNote mở ứng dụng bản đồ khác (vd. Google Maps) đã cài trên thiết bị — thao tác này cần Internet và do ứng dụng/dịch vụ bên ngoài đó xử lý.
+- Microphone / nhận dạng giọng nói: dùng để chuyển giọng nói thành văn bản khi bạn nhập tên hoặc ghi chú bằng giọng nói. Việc nhận dạng giọng nói do hệ điều hành xử lý — tuỳ thiết bị/phiên bản iOS, việc này có thể được xử lý ngay trên máy hoặc qua dịch vụ giọng nói của Apple; PropNote chỉ nhận lại văn bản kết quả, không tự lưu file âm thanh.
+- Bản đồ: PropNote sử dụng dữ liệu bản đồ được đóng gói cục bộ trong ứng dụng cho các khu vực được hỗ trợ (hiện tại: TP.HCM, Hà Nội) — bản đồ nền không yêu cầu gửi vị trí của bạn tới máy chủ bản đồ để hiển thị, và không tải dữ liệu bản đồ qua Internet. Ngoài các khu vực này, bản đồ hiển thị nền trống kèm thông báo "Bản đồ chưa hỗ trợ khu vực này" — toạ độ bất động sản của bạn vẫn được lưu và sử dụng bình thường dù ở bất kỳ đâu. Khi bạn dùng tính năng chỉ đường, PropNote mở ứng dụng bản đồ khác (vd. Google Maps) đã cài trên thiết bị — thao tác này cần Internet và do ứng dụng/dịch vụ bên ngoài đó xử lý, không phải PropNote.
+
+Bạn có thể thu hồi bất kỳ quyền nào ở trên bất kỳ lúc nào trong Cài đặt hệ thống của thiết bị (iOS: Cài đặt → PropNote). Thu hồi quyền không xoá dữ liệu đã lưu trong app — chỉ ngừng cho phép PropNote truy cập quyền đó ở các lần dùng sau.
+
+Lưu giữ và xoá dữ liệu
+- Dữ liệu bất động sản được giữ trên thiết bị cho tới khi bạn chủ động xoá.
+- Xoá một bất động sản (thao tác thông thường) sẽ chuyển nó vào Thùng rác — dữ liệu vẫn còn và có thể khôi phục.
+- Xoá vĩnh viễn khỏi Thùng rác sẽ loại bỏ hoàn toàn dữ liệu bất động sản đó (thông tin, ảnh, tài liệu đính kèm) khỏi PropNote.
+- Gỡ cài đặt ứng dụng sẽ khiến hệ điều hành xoá toàn bộ dữ liệu app trên thiết bị theo cơ chế chuẩn của iOS.
+- Vì PropNote không có tài khoản hay máy chủ riêng, không có dữ liệu nào ở phía máy chủ cần bạn gửi yêu cầu xoá — mọi thao tác xoá đều xảy ra ngay trên thiết bị của bạn.
+- Bản sao lưu (.zip) do bạn tự tạo và tự lưu/chia sẻ (Files, email, AirDrop, iCloud, ...) nằm ngoài phạm vi kiểm soát của PropNote sau khi đã chia sẻ ra ngoài — PropNote không thể tự xoá các bản sao lưu đó; bạn quản lý chúng như quản lý bất kỳ tệp nào khác trên thiết bị/dịch vụ lưu trữ bạn đã chọn.
 
 Sao lưu và khôi phục
 Bạn có thể chủ động tạo bản sao lưu (một tệp .zip chứa dữ liệu và media) và chia sẻ nó tới nơi bạn chọn (Files, email, AirDrop, ...), hoặc khôi phục từ một tệp sao lưu đã có. Đây là thao tác thủ công do bạn thực hiện — PropNote không tự động tải bản sao lưu lên bất kỳ máy chủ nào.
@@ -44,7 +54,10 @@ Chúng tôi không thu thập, chia sẻ hay bán dữ liệu bất động sả
 Đăng ký PropNote Pro
 Nếu bạn nâng cấp lên PropNote Pro, giao dịch mua được xử lý hoàn toàn bởi Apple App Store hoặc Google Play — PropNote không tự lưu số thẻ hay thông tin thanh toán của bạn. PropNote chỉ lưu cục bộ trên thiết bị trạng thái gói đăng ký (Free/Pro) để xác định quyền sử dụng; việc quản lý, huỷ hoặc thay đổi phương thức thanh toán được thực hiện trực tiếp trong Cài đặt tài khoản App Store/Google Play của bạn.
 
-Vì dữ liệu nằm hoàn toàn trên thiết bị (trừ giao dịch mua qua App Store/Google Play nêu trên), bạn là người duy nhất chịu trách nhiệm sao lưu dữ liệu của mình.
+Vì dữ liệu nằm hoàn toàn trên thiết bị (trừ giao dịch mua qua App Store/Google Play và nhận dạng giọng nói nêu trên), bạn là người duy nhất chịu trách nhiệm sao lưu dữ liệu của mình.
+
+Liên hệ
+Nếu bạn có câu hỏi về chính sách quyền riêng tư này, vui lòng liên hệ: Timeforwork789@icloud.com
 ''';
 
 const String kAboutText = '''
