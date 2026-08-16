@@ -90,6 +90,7 @@ không phải CRM, không quản lý khách hàng, không phải nền tảng mu
 ```
 bất động sản,BDS,nhà đất,môi giới,sổ tay,bản đồ,khảo sát,ghi chú,ảnh,offline
 ```
+(76 ký tự, trong giới hạn 100.)
 
 ## Primary Category
 
@@ -112,11 +113,13 @@ Timeforwork789@icloud.com
 ## Support URL
 
 ```
-[SUPPORT URL CẦN ĐIỀN SAU KHI PUBLISH — trỏ tới support.html, xem
-PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md. File đã sẵn sàng ở
-release/app_store/1.0.0/support.html (hoặc site/support.html), chỉ còn
-thiếu bước host công khai.]
+WAITING FOR USER TO ENABLE/PUBLISH — sẽ là:
+https://tom-deptrai.github.io/Propnote-sotayBDS/support.html
 ```
+File đã commit sẵn tại `docs/support.html` trên `main` — chỉ còn thiếu
+bước bật GitHub Pages (Settings → Pages → Source: Deploy from a branch →
+`main` / `/docs` → Save). URL trên là chính xác, xác định được ngay vì
+GitHub Pages luôn dùng domain `<owner-thường>.github.io/<repo>/`.
 
 ## Marketing URL (tuỳ chọn — có thể để trống nếu chưa có trang riêng)
 
@@ -127,10 +130,11 @@ thiếu bước host công khai.]
 ## Privacy Policy URL
 
 ```
-[PRIVACY POLICY URL CẦN ĐIỀN SAU KHI PUBLISH — trỏ tới privacy-policy.html,
-xem PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md trong cùng thư mục này. File đã
-sẵn sàng, chỉ còn thiếu bước host công khai.]
+WAITING FOR USER TO ENABLE/PUBLISH — sẽ là:
+https://tom-deptrai.github.io/Propnote-sotayBDS/privacy.html
 ```
+File đã commit sẵn tại `docs/privacy.html` trên `main` — chỉ còn thiếu
+bước bật GitHub Pages (xem hướng dẫn ở Support URL phía trên).
 
 ## Terms of Use (EULA)
 
@@ -141,12 +145,16 @@ nhau). Có 2 lựa chọn hợp lệ:
 1. **Dùng Apple Standard EULA** (mặc định, không cần điền gì thêm trong App
    Store Connect) — đủ cho PropNote vì app không cần điều khoản tuỳ chỉnh
    ngoài nội dung đã có trong `terms-of-use.html`/`kTermsOfUseText`.
-2. Hoặc điền URL `terms-of-use.html` (sau khi publish) vào mục **License
-   Agreement** trong App Store Connect nếu bạn muốn Apple hiển thị đúng
-   trang điều khoản riêng của PropNote thay vì EULA chuẩn.
+2. Hoặc điền URL sau (sau khi bật GitHub Pages, xem Support URL/Privacy
+   Policy URL phía trên) vào mục **License Agreement** trong App Store
+   Connect nếu bạn muốn Apple hiển thị đúng trang điều khoản riêng của
+   PropNote thay vì EULA chuẩn:
+   ```
+   https://tom-deptrai.github.io/Propnote-sotayBDS/terms.html
+   ```
 
-Cả 2 lựa chọn đều hợp lệ — trang `terms-of-use.html` đã sẵn sàng cho lựa
-chọn 2 nếu bạn chọn dùng nó.
+Cả 2 lựa chọn đều hợp lệ — trang đã commit sẵn tại `docs/terms.html` trên
+`main`, sẵn sàng cho lựa chọn 2 nếu bạn chọn dùng nó.
 
 ## Copyright
 

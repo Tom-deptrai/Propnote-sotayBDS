@@ -1,107 +1,110 @@
 # Checklist — Các bước bạn cần tự làm trên App Store Connect
 
 Claude đã chuẩn bị sẵn code, build, archive, và toàn bộ nội dung cần thiết
-(xem các file trong `release/app_store/1.0.0/`). Dưới đây là những bước
-CHỈ bạn mới làm được (cần tài khoản Apple Developer/2FA/App Store Connect
-UI) — theo đúng thứ tự nên làm.
+(xem các file trong `release/app_store/1.0.0/`). Dưới đây CHỈ còn những
+bước cần tài khoản Apple Developer/2FA/App Store Connect UI của bạn — theo
+đúng thứ tự A → H.
 
 ---
 
-- [ ] **1. Đăng nhập [App Store Connect](https://appstoreconnect.apple.com)**
-  bằng tài khoản Apple Developer gắn với Team `VZAHR6GK36`.
+## A. Apple Developer / Agreements
 
-- [ ] **2. Tạo New App**
-  - Platform: iOS
-  - Name: `PropNote`
-  - Primary Language: Vietnamese
-  - Bundle ID: chọn `com.propnote.propnote` (phải đã đăng ký sẵn trong
-    Certificates, Identifiers & Profiles — nếu chưa có, tạo Identifier
-    trước với đúng Bundle ID này).
-  - SKU: đề xuất `propnote-ios-1` (hoặc bất kỳ chuỗi nội bộ nào bạn muốn,
-    không hiển thị công khai).
+- [ ] **A1.** Đăng nhập [App Store Connect](https://appstoreconnect.apple.com)
+  bằng Apple ID gắn với Team `VZAHR6GK36`.
+- [ ] **A2.** Vào **Agreements, Tax, and Banking** — xác nhận:
+  - Paid Applications Agreement: **Active**
+  - Banking: đã điền
+  - Tax forms: đã hoàn tất
+  `MANUAL APP STORE CONNECT CHECK` — không thể kiểm tra từ máy local,
+  cần bạn tự xác nhận trong Console. Đây là điều kiện bắt buộc để
+  subscription hoạt động (app free vẫn cần Agreement active nếu có IAP).
 
-- [ ] **3. Tạo Subscription Group + `propnote_pro_yearly`**
-  Theo đúng `SUBSCRIPTION_SETUP.md` trong cùng thư mục — copy chính xác
-  Product ID, duration, giá, mô tả tiếng Việt.
+## B. App record
 
-- [ ] **4. Host Privacy / Terms / Support công khai**
-  Theo `PRIVACY_POLICY_PUBLISH_INSTRUCTIONS.md` — cách nhanh nhất là
-  GitHub Pages, chỉ mất ~5 phút, publish nguyên bộ `site/` (đã có
-  `index.html`, `privacy.html`, `terms.html`, `support.html`, email hỗ trợ
-  `Timeforwork789@icloud.com` đã điền sẵn — không cần sửa gì trong HTML
-  trước khi publish).
+- [ ] **B1.** My Apps → **+ → New App**, điền đúng:
 
-- [ ] **5. Điền metadata theo `APP_STORE_METADATA_VI.md`**
-  Copy-paste trực tiếp: App Name, Subtitle, Description, Keywords,
-  Category, Copyright, Release Notes. Điền 2 URL còn thiếu sau bước 4:
-  Support URL và Privacy Policy URL. Marketing URL để trống nếu chưa có
-  trang riêng. Xem thêm mục "Terms of Use (EULA)" trong file này để chọn
-  dùng Apple Standard EULA hoặc URL `terms.html` riêng của PropNote.
+  | Field | Giá trị |
+  |---|---|
+  | Platform | iOS |
+  | Name | `PropNote` |
+  | Primary Language | Vietnamese |
+  | Bundle ID | `com.propnote.propnote` (tạo Identifier trước trong Certificates, Identifiers & Profiles nếu chưa có) |
+  | SKU | `propnote-ios-1` (nội bộ, không hiển thị công khai) |
 
-- [ ] **6. Upload screenshots**
-  Theo `SCREENSHOT_PLAN.md` — cần bạn tự chụp (hoặc yêu cầu Claude chụp ở
-  phiên làm việc riêng) theo đúng kích thước App Store Connect yêu cầu tại
+## C. Subscription
+
+- [ ] **C1.** Tạo Subscription Group + subscription theo đúng
+  `SUBSCRIPTION_SETUP.md` (Product ID `propnote_pro_yearly`, duration
+  1 Year, ~199.000₫/năm, localization vi + en-US).
+
+## D. URLs / Metadata / Privacy
+
+- [ ] **D1.** Bật GitHub Pages (1 thao tác, ~1-2 phút deploy):
+  Repo `Tom-deptrai/Propnote-sotayBDS` → **Settings → Pages** → Source:
+  **Deploy from a branch** → Branch: **main**, folder **/docs** → **Save**.
+  File đã commit sẵn tại `main:/docs/` (index/privacy/terms/support.html).
+  URL sau khi bật (cố định, không cần đoán):
+  ```
+  https://tom-deptrai.github.io/Propnote-sotayBDS/privacy.html
+  https://tom-deptrai.github.io/Propnote-sotayBDS/terms.html
+  https://tom-deptrai.github.io/Propnote-sotayBDS/support.html
+  ```
+- [ ] **D2.** Điền metadata theo `APP_STORE_METADATA_VI.md` — copy-paste
+  App Name/Subtitle/Description/Keywords/Category/Copyright/Release Notes.
+  Dán 2 URL từ D1 vào **Support URL** và **Privacy Policy URL**. Marketing
+  URL để trống. Xem mục "Terms of Use (EULA)" trong file để chọn Apple
+  Standard EULA hoặc URL `terms.html`.
+- [ ] **D3.** Điền App Privacy theo `APP_PRIVACY_FORM_GUIDE.md` — đối
+  chiếu từng dòng `VERIFY IN CURRENT APP STORE CONNECT FORM` với wording
+  thật trong Console lúc điền.
+
+## E. Xcode Upload
+
+- [ ] **E1.** Mở **Xcode → Window → Organizer** (Xcode đang mở sẵn).
+- [ ] **E2.** Tab **Archives** → chọn `PropNote-1.0.0-build2.xcarchive`
+  (nếu không thấy, **File → Open** và trỏ tới
+  `build/appstore/PropNote-1.0.0-build2.xcarchive`).
+  Dùng bản **build2** (không phải bản `PropNote-1.0.0.xcarchive` cũ hơn).
+- [ ] **E3.** **Distribute App → App Store Connect → Upload** →
+  **Automatically manage signing** (cần Apple ID Team `VZAHR6GK36` đã
+  đăng nhập trong Xcode → Settings → Accounts — đã xác nhận sẵn sàng, xem
+  báo cáo chính).
+  *Lưu ý: đây là bước duy nhất Claude không kiểm chứng được đúng 100%
+  wording UI hiện tại của Xcode 26.6 (không có công cụ đọc màn hình Xcode
+  trong phiên này) — nếu tên nút/menu khác với trên, làm theo đúng UI bạn
+  thấy, luồng tổng thể (Organizer → Archives → Distribute App → App Store
+  Connect → Upload) không đổi qua các bản Xcode gần đây.*
+- [ ] **E4.** Build xuất hiện trong App Store Connect sau vài phút–~1 giờ.
+
+## F. Screenshots
+
+- [ ] **F1.** Đã có sẵn 3 ảnh sạch tại
+  `release/app_store/1.0.0/screenshots_raw/` (bản đồ TP.HCM, Cài đặt, bản
+  đồ Hà Nội — xem `SCREENSHOT_PLAN.md`).
+- [ ] **F2.** Tự chụp thêm 4 ảnh còn lại (Danh sách có dữ liệu, Chi tiết
+  BĐS, Bản đồ có marker+giá, Add/Edit đã điền) — cần gõ tay 2-3 BĐS mẫu
+  bằng tiếng Việt có dấu trực tiếp trên Simulator/thiết bị (công cụ tự
+  động của Claude không gõ được dấu tiếng Việt). Xem dữ liệu mẫu đề xuất
+  trong `SCREENSHOT_PLAN.md`.
+- [ ] **F3.** Upload đủ bộ ảnh theo đúng kích thước Console yêu cầu tại
   thời điểm upload.
 
-- [ ] **7. Điền App Privacy theo `APP_PRIVACY_FORM_GUIDE.md`**
-  Đối chiếu từng mục trong bảng — với các dòng ghi `VERIFY IN CURRENT APP
-  STORE CONNECT FORM`, đọc đúng câu hỏi hiện tại trong Console trước khi
-  chọn đáp án (form có thể đổi wording theo thời gian).
+## G. Attach build + subscription
 
-- [ ] **8. Upload/select build**
-  - Nếu bạn tự export IPA qua Xcode Organizer (xem hướng dẫn ngay dưới) và
-    upload bằng Transporter/Xcode: build sẽ tự xuất hiện trong danh sách
-    "Build" của version 1.0 sau khi xử lý xong (thường vài phút tới ~1
-    giờ).
-  - Chọn đúng build vừa upload cho version 1.0.
+- [ ] **G1.** Vào version 1.0 → mục **Build** → chọn build vừa upload
+  (bước E).
+- [ ] **G2.** Mục **In-App Purchases and Subscriptions** của version 1.0
+  → **Attach** subscription `propnote_pro_yearly` — BẮT BUỘC vì đây là
+  subscription đầu tiên của app.
 
-- [ ] **9. Attach subscription `propnote_pro_yearly` vào version 1.0**
-  Trong mục "In-App Purchases and Subscriptions" của chính version 1.0 —
-  BẮT BUỘC vì đây là subscription đầu tiên của app, không thể submit
-  version 1.0 mà thiếu bước này (xem thêm mục 7 trong
-  `SUBSCRIPTION_SETUP.md`).
+## H. Submit
 
-- [ ] **10. Paste Review Notes**
-  Copy nguyên khối text trong `APP_REVIEW_NOTES.md` (phần trong dấu
-  code block) vào ô "Notes" của App Review Information.
-
-- [ ] **11. Submit for Review**
-  Bấm submit khi đã hoàn tất tất cả các mục trên.
-
----
-
-## Export IPA từ archive đã build sẵn
-
-Claude đã tạo sẵn archive (build mới nhất, khuyến nghị dùng bản này) tại:
-```
-build/appstore/PropNote-1.0.0-build2.xcarchive
-```
-(Build 1, `build/appstore/PropNote-1.0.0.xcarchive`, vẫn còn nếu bạn cần
-đối chiếu — nhưng build 2 là bản có đủ fix dung lượng + compliance settings
-nên nên dùng bản build 2 để nộp.)
-
-Máy hiện tại **chưa có Apple Distribution certificate** (chỉ có Development
-certificate), nên Claude **không tự export được IPA** — export cần đăng
-nhập Xcode với tài khoản Apple Developer của bạn để Xcode tự cấp
-Distribution certificate + provisioning profile.
-
-Cách export (chỉ mất 2-3 phút với Xcode Organizer):
-
-1. Mở **Xcode** → menu **Window → Organizer**.
-2. Tab **Archives**, chọn `PropNote-1.0.0.xcarchive` (nếu không thấy, dùng
-   **File → Open** rồi trỏ tới đường dẫn ở trên).
-3. Bấm **Distribute App** → chọn **App Store Connect** → **Upload**.
-4. Xcode sẽ tự động quản lý signing (Automatically manage signing) nếu bạn
-   đã đăng nhập Apple ID có quyền trên Team `VZAHR6GK36` trong
-   Xcode → Settings → Accounts.
-5. Sau khi upload thành công, quay lại App Store Connect — build sẽ xuất
-   hiện trong danh sách sau khi Apple xử lý xong (mục 8 ở checklist trên).
-
-Nếu muốn export ra file `.ipa` thay vì upload thẳng, chọn **Distribute
-App → App Store Connect → Export** thay vì **Upload** ở bước 3.
+- [ ] **H1.** Paste nguyên khối **FINAL PASTE BLOCK** trong
+  `APP_REVIEW_NOTES.md` vào ô **Notes** của App Review Information.
+- [ ] **H2.** Rà lại toàn bộ mục A-G đã tick đủ → **Submit for Review**.
 
 ---
 
 **Claude sẽ KHÔNG tự động thực hiện bất kỳ bước nào ở trên** (đăng nhập
-tài khoản, submit review, publish site công khai) trừ khi bạn yêu cầu cụ
-thể ở phiên làm việc riêng.
+tài khoản, bật GitHub Pages, submit review) trừ khi bạn yêu cầu cụ thể ở
+phiên làm việc riêng.
