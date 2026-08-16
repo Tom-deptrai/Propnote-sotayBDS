@@ -1,10 +1,14 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/services/app_runtime.dart';
 import '../../state/app_state.dart';
+import '../../subscription/paywall_screen.dart';
+import '../../subscription/subscription_service.dart';
+import '../../subscription/subscription_state.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_messenger.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -153,10 +157,17 @@ class SettingsScreen extends StatelessWidget {
             SettingsSection(
               title: 'Ứng dụng',
               children: [
-                const SettingsTile(
+                SettingsTile(
                   icon: Icons.info_outline_rounded,
                   label: 'Phiên bản',
-                  trailingText: '1.0.0',
+                  trailingWidget: FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      final info = snapshot.data;
+                      if (info == null) return const Text('—');
+                      return Text('${info.version} (${info.buildNumber})');
+                    },
+                  ),
                 ),
                 SettingsTile(
                   icon: Icons.privacy_tip_outlined,
@@ -198,6 +209,9 @@ class _ProCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final service = context.watch<SubscriptionService>();
+    final state = service.state;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -233,13 +247,38 @@ class _ProCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          if (state.isPro)
+            _ProCardActive(
+              state: state,
+              onManage: () => service.openManagementUrl(),
+            )
+          else
+            _ProCardUpgrade(state: state),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProCardUpgrade extends StatelessWidget {
+  final SubscriptionState state;
+
+  const _ProCardUpgrade({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final priceLabel = state.localizedPrice;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (priceLabel != null)
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Text(
-                '199.000đ',
-                style: TextStyle(
+              Text(
+                priceLabel,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 22,
@@ -255,29 +294,83 @@ class _ProCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Không giới hạn số lượng bất động sản, sao lưu đám mây, và nhiều hơn nữa.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.75),
-              fontSize: 12.5,
-              height: 1.4,
-            ),
+        const SizedBox(height: 4),
+        Text(
+          'Đăng ký theo năm để dùng: không giới hạn số lượng bất động sản.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.75),
+            fontSize: 12.5,
+            height: 1.4,
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.navy,
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.navy,
+            ),
+            onPressed: () => showPaywallScreen(context),
+            child: const Text('Nâng cấp lên Pro'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProCardActive extends StatelessWidget {
+  final SubscriptionState state;
+  final VoidCallback onManage;
+
+  const _ProCardActive({required this.state, required this.onManage});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.gold,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            const Text(
+              'Đang sử dụng gói Pro',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
               ),
-              onPressed: () => showAppSnackBar('Sắp ra mắt'),
-              child: const Text('Nâng cấp lên Pro'),
             ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Gói theo năm, không giới hạn số lượng bất động sản.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.75),
+            fontSize: 12.5,
+            height: 1.4,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white54),
+            ),
+            onPressed: onManage,
+            child: const Text('Quản lý đăng ký'),
+          ),
+        ),
+      ],
     );
   }
 }

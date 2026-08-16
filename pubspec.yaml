@@ -52,6 +52,8 @@ dependencies:
   crypto: ^3.0.7
   open_filex: ^4.7.0
   maplibre_gl: ^0.26.2
+  in_app_purchase: ^3.3.0
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +69,8 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   sqflite_common_ffi: ^2.4.2
+  in_app_purchase_platform_interface: ^1.4.1
+  plugin_platform_interface: ^2.1.8
 
 # Official PropNote app icon. Source image is used as-is (no redesign,
 # recolor, or crop) — see assets/icon/propnote_icon.png.

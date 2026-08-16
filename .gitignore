@@ -44,5 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Production signing secrets — never commit.
+/android/key.properties
+*.jks
+*.keystore
+
 # Local tooling state (not part of app source)
 .claude/

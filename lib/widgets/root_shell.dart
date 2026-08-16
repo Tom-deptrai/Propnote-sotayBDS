@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../screens/add_property/add_property_screen.dart';
 import '../screens/list/list_screen.dart';
 import '../screens/map/map_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../state/app_state.dart';
+import '../subscription/paywall_screen.dart';
+import '../subscription/property_quota_policy.dart';
+import '../subscription/subscription_service.dart';
 import '../theme/app_colors.dart';
 
 class RootShell extends StatefulWidget {
@@ -22,7 +27,21 @@ class _RootShellState extends State<RootShell> {
     SettingsScreen(),
   ];
 
-  void _openAddProperty() {
+  Future<void> _openAddProperty() async {
+    final appState = context.read<AppState>();
+    final subscription = context.read<SubscriptionService>();
+    final countedTotal = appState.properties.length + appState.trash.length;
+    final canCreate = PropertyQuotaPolicy.canCreateProperty(
+      isPro: subscription.isPro,
+      countedPropertyTotal: countedTotal,
+    );
+    if (!canCreate) {
+      final upgraded = await showPaywallScreen(context);
+      if (!upgraded || !mounted) return;
+      // Mua Pro thành công ngay tại paywall — tiếp tục mở Add Property luôn
+      // để người dùng không phải bấm lại nút "+" lần nữa.
+    }
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const AddPropertyScreen(),

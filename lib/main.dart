@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'data/services/app_runtime.dart';
 import 'state/app_state.dart';
+import 'subscription/subscription_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_messenger.dart';
 import 'widgets/media_path_scope.dart';
@@ -34,6 +35,9 @@ class PropNoteApp extends StatelessWidget {
       providers: [
         Provider<AppRuntime?>.value(value: runtime),
         ChangeNotifierProvider<AppState>.value(value: appState ?? AppState()),
+        ChangeNotifierProvider<SubscriptionService>.value(
+          value: runtime?.subscriptionService ?? SubscriptionService(),
+        ),
       ],
       child: MediaPathScope(
         directories: runtime?.directories,

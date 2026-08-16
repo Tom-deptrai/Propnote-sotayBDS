@@ -15,6 +15,9 @@ import '../../models/property_document.dart';
 import '../../models/property_photo.dart';
 import '../../models/property_status.dart';
 import '../../state/app_state.dart';
+import '../../subscription/paywall_screen.dart';
+import '../../subscription/property_quota_policy.dart';
+import '../../subscription/subscription_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/app_messenger.dart';
 import '../../utils/formatters.dart';
@@ -396,6 +399,22 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     if (state.areas.isEmpty || state.propertyTypeModels.isEmpty) {
       showAppSnackBar('Cần ít nhất một khu vực và một loại BĐS');
       return;
+    }
+    if (!_isEditing) {
+      // An toàn dự phòng: cổng quota chính nằm ở nơi mở màn hình này
+      // (RootShell._openAddProperty). Re-check ở đây phòng trường hợp
+      // quota đổi trong lúc form đang mở, để không có đường nào bỏ qua
+      // giới hạn Free.
+      final subscription = context.read<SubscriptionService>();
+      final countedTotal = state.properties.length + state.trash.length;
+      final canCreate = PropertyQuotaPolicy.canCreateProperty(
+        isPro: subscription.isPro,
+        countedPropertyTotal: countedTotal,
+      );
+      if (!canCreate) {
+        final upgraded = await showPaywallScreen(context);
+        if (!upgraded || !mounted) return;
+      }
     }
     final areaId = _areaId ?? state.areas.first.id;
     final existing = widget.existing;

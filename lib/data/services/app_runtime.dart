@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import '../../state/app_state.dart';
+import '../../subscription/subscription_service.dart';
 import '../database/app_database.dart';
 import '../repositories/app_repository.dart';
 import '../repositories/sqlite_app_repository.dart';
@@ -19,6 +22,7 @@ class AppRuntime {
   final PlatformActionService platformActions;
   final PropertyShareService propertyShareService;
   final BackupService backupService;
+  final SubscriptionService subscriptionService;
   final AppState state;
 
   const AppRuntime({
@@ -30,6 +34,7 @@ class AppRuntime {
     required this.platformActions,
     required this.propertyShareService,
     required this.backupService,
+    required this.subscriptionService,
     required this.state,
   });
 
@@ -45,6 +50,7 @@ class AppRuntime {
       directories: directories,
       database: database,
     );
+    final subscriptionService = SubscriptionService(repository: repository);
     final state = AppState(repository: repository, mediaStorage: mediaStorage);
     await state.initialize();
     final runtime = AppRuntime(
@@ -56,9 +62,14 @@ class AppRuntime {
       platformActions: platformActions,
       propertyShareService: propertyShareService,
       backupService: backupService,
+      subscriptionService: subscriptionService,
       state: state,
     );
     await runtime.reconcileMedia();
+    // Không await: gọi store (network) không được chặn app khởi động —
+    // UI đọc SubscriptionState.unknown/cache trong lúc chờ, tự cập nhật
+    // qua ChangeNotifier khi có kết quả.
+    unawaited(subscriptionService.initialize());
     return runtime;
   }
 

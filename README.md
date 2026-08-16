@@ -2,14 +2,27 @@
 
 > "Sổ tay bất động sản cá nhân có bản đồ và thư viện ảnh."
 
-UI prototype (Flutter) cho PropNote — ứng dụng dành cho môi giới BĐS cá nhân
-và người thường xuyên đi khảo sát nhà đất, giúp ghi nhớ vị trí, hình ảnh và
-thông tin của từng bất động sản. Local-first, không tài khoản, không phải CRM.
+PropNote (Flutter) là ứng dụng dành cho môi giới BĐS cá nhân và người thường
+xuyên đi khảo sát nhà đất, giúp ghi nhớ vị trí, hình ảnh và thông tin của
+từng bất động sản. Local-first, không tài khoản, không phải CRM.
 
-Đây là **giai đoạn UI prototype**: giao diện được đầu tư đầy đủ và có thể
-bấm qua lại giữa các màn hình, nhưng SQLite, Google Maps thật, GPS, camera,
-backup, subscription/thanh toán, cloud và authentication đều **chưa** được
-triển khai — toàn bộ dùng dữ liệu mock trong bộ nhớ (session-only).
+## Tính năng
+
+- **Lưu trữ local-first**: toàn bộ dữ liệu nằm trong SQLite + bộ nhớ thiết
+  bị, không cần tài khoản, không đồng bộ máy chủ.
+- **Bản đồ**: MapLibre GL + OpenFreeMap, marker theo trạng thái BĐS, label
+  giá tuỳ chọn, vị trí GPS hiện tại (bật/tắt), chọn vị trí bằng cách kéo bản
+  đồ.
+- **Thêm/sửa BĐS**: ảnh chụp/thư viện, tài liệu đính kèm, nhập liệu bằng
+  giọng nói (speech-to-text), quản lý Loại BĐS/Tags/Khu vực tuỳ biến.
+- **Danh sách & tìm kiếm**: lọc theo trạng thái, sắp xếp, tìm kiếm theo
+  tên/địa chỉ/khu vực/ghi chú/tag.
+- **Sao lưu & khôi phục**: xuất một tệp `.zip` chứa toàn bộ dữ liệu + media
+  để tự lưu trữ hoặc chuyển thiết bị; khôi phục lại từ tệp đó.
+- **Thùng rác**: xoá mềm trước, khôi phục hoặc xoá vĩnh viễn sau.
+- **Free / Pro**: gói Free tạo tối đa 10 bất động sản (miễn phí, không giới
+  hạn thời gian); gói PropNote Pro (đăng ký theo năm, tự động gia hạn qua
+  App Store/Google Play) mở khoá không giới hạn số lượng.
 
 ## Thiết kế
 
@@ -18,33 +31,19 @@ triển khai — toàn bộ dùng dữ liệu mock trong bộ nhớ (session-onl
 - Trạng thái BĐS: Đỏ = Đang bán, Xanh = Chưa khảo sát, Xám = Đã bán
 - Bottom navigation 3 tab: Bản đồ · Danh sách · Cài đặt
 
-## Màn hình đã có
-
-- **Bản đồ** — bản đồ cách điệu vẽ bằng `CustomPainter` (sông, công viên,
-  đường xá, nhãn khu vực), pan/zoom, marker màu theo trạng thái, cluster,
-  thanh tìm kiếm, filter chip, bottom sheet xem nhanh, nút định vị.
-- **Danh sách** — tìm kiếm toàn cục, tab khu vực, card BĐS, bộ lọc
-  (trạng thái/giá/diện tích).
-- **Thêm / Chỉnh sửa BĐS** — form nhanh: ảnh, trạng thái, khu vực, chọn vị
-  trí trên bản đồ, thông tin chính, tags, ghi chú, ngày khảo sát.
-- **Chi tiết BĐS** — gallery ảnh, giá nổi bật, thông tin, tags, ghi chú,
-  preview vị trí, đổi trạng thái / chuyển khu vực / xoá.
-- **Cài đặt** — dữ liệu (sao lưu/khôi phục/dung lượng/thùng rác), quản lý
-  khu vực, PropNote Pro, thông tin ứng dụng.
-- **Quản lý khu vực** — thêm/đổi tên/xoá/sắp xếp.
-- **Thùng rác** — khôi phục / xoá vĩnh viễn.
-
 ## Chạy thử
 
-```bash
+```
 flutter pub get
-flutter run -d <device_id>   # iOS Simulator
-# hoặc
-flutter run -d chrome        # Flutter Web (phương án dự phòng)
+flutter run -d <device_id>
 ```
 
 ## Công nghệ
 
-Flutter (Dart), `provider` cho state trong phiên, `intl` để định dạng
-tiền tệ/ngày tháng. Không phụ thuộc API ảnh/bản đồ online — ảnh và bản đồ
-đều là placeholder vẽ bằng code để chạy offline hoàn toàn.
+Flutter (Dart), `provider`, `sqflite`, `maplibre_gl` (OpenFreeMap), `geolocator`,
+`image_picker`, `file_picker`, `speech_to_text`, `share_plus`, `archive`
+(sao lưu/khôi phục), `in_app_purchase` (PropNote Pro subscription).
+
+## Nền tảng
+
+iOS và Android. Bundle/Application ID: `com.propnote.propnote`.
