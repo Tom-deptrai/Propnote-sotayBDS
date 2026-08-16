@@ -40,6 +40,7 @@ class MiniMapPreview extends StatelessWidget {
                     interactive: false,
                     showCompass: false,
                     followInitialTargetChanges: true,
+                    showCoverageBanner: false,
                     markers: [
                       PropertyMapMarkerData(
                         id: 'preview',

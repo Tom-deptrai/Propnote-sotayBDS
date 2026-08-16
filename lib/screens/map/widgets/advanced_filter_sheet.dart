@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../data/services/map/map_coverage_policy.dart';
 import '../../../state/app_state.dart';
 import '../../../theme/app_colors.dart';
+import 'map_region_selector.dart';
 
 class MapAdvancedFilter {
   final double minimumPriceBillions;
@@ -15,7 +17,7 @@ class MapAdvancedFilter {
     this.minimumPriceBillions = 0,
     this.maximumPriceBillions = 50,
     this.propertyTypes = const {},
-    this.showPrice = false,
+    this.showPrice = true,
     this.showPriceUnit = true,
   });
 
@@ -23,25 +25,42 @@ class MapAdvancedFilter {
       minimumPriceBillions == 0 &&
       maximumPriceBillions == 50 &&
       propertyTypes.isEmpty &&
-      showPrice == false &&
+      showPrice == true &&
       showPriceUnit == true;
 }
 
 Future<MapAdvancedFilter?> showAdvancedFilterSheet(
   BuildContext context, {
   MapAdvancedFilter initial = const MapAdvancedFilter(),
+  String? activeMapRegionId,
+  ValueChanged<SupportedMapRegion>? onSelectMapRegion,
 }) {
   return showModalBottomSheet<MapAdvancedFilter>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _AdvancedFilterSheet(initial: initial),
+    builder: (context) => _AdvancedFilterSheet(
+      initial: initial,
+      activeMapRegionId: activeMapRegionId,
+      onSelectMapRegion: onSelectMapRegion,
+    ),
   );
 }
 
 class _AdvancedFilterSheet extends StatefulWidget {
   final MapAdvancedFilter initial;
 
-  const _AdvancedFilterSheet({required this.initial});
+  /// "Khu vực bản đồ" (TP.HCM/Hà Nội) là lựa chọn VÙNG BASEMAP, KHÔNG phải
+  /// tiêu chí lọc BĐS — cố tình tách khỏi [MapAdvancedFilter]/nút Áp dụng:
+  /// bấm là chuyển vùng ngay, không cần bấm "Áp dụng", và không ảnh hưởng gì
+  /// tới danh sách BĐS/filter khác đang chọn.
+  final String? activeMapRegionId;
+  final ValueChanged<SupportedMapRegion>? onSelectMapRegion;
+
+  const _AdvancedFilterSheet({
+    required this.initial,
+    this.activeMapRegionId,
+    this.onSelectMapRegion,
+  });
 
   @override
   State<_AdvancedFilterSheet> createState() => _AdvancedFilterSheetState();
@@ -55,6 +74,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
   late final Set<String> _types = Set.of(widget.initial.propertyTypes);
   late bool _showPrice = widget.initial.showPrice;
   late bool _showPriceUnit = widget.initial.showPriceUnit;
+  late String? _activeMapRegionId = widget.activeMapRegionId;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +109,27 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                 'Bộ lọc nâng cao',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
+              if (widget.onSelectMapRegion != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Khu vực bản đồ',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Chuyển vùng bản đồ nền đang xem — không liên quan tới lọc '
+                  'bất động sản.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                ),
+                const SizedBox(height: 8),
+                MapRegionSelector(
+                  activeRegionId: _activeMapRegionId,
+                  onSelect: (region) {
+                    widget.onSelectMapRegion!(region);
+                    setState(() => _activeMapRegionId = region.id);
+                  },
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -206,7 +247,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         setState(() {
                           _price = const RangeValues(0, 50);
                           _types.clear();
-                          _showPrice = false;
+                          _showPrice = true;
                           _showPriceUnit = true;
                         });
                         state.resetMarkerScale();

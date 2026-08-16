@@ -7,13 +7,30 @@ import '../utils/app_messenger.dart';
 import 'subscription_service.dart';
 import 'subscription_state.dart';
 
+/// Lý do paywall được mở — quyết định nội dung hiển thị (mục 4/5/6): người
+/// dùng chủ động vào Settings nâng cấp không nên thấy thông báo hết quota
+/// không liên quan tới họ; người bị chặn tạo mới vì hết quota Free cần biết
+/// rõ TẠI SAO họ đang thấy paywall này.
+enum PaywallReason {
+  /// Người dùng tự bấm "Nâng cấp lên Pro" trong Settings — không liên quan
+  /// gì tới quota hiện tại (có thể còn dư hoặc đã hết, không quan trọng).
+  voluntaryUpgrade,
+
+  /// Bị chặn vì đã dùng hết 10 BĐS của gói Free (tính cả Thùng rác) khi cố
+  /// tạo mới — xem [_QuotaReachedInfoCard].
+  quotaReached,
+}
+
 /// Mở paywall PropNote Pro. Trả về `true` nếu người dùng mua/khôi phục
 /// thành công trong phiên này (gọi nơi cần biết để tự tiếp tục flow, vd.
 /// mở lại Add Property ngay sau khi nâng cấp).
-Future<bool> showPaywallScreen(BuildContext context) async {
+Future<bool> showPaywallScreen(
+  BuildContext context, {
+  PaywallReason reason = PaywallReason.voluntaryUpgrade,
+}) async {
   final result = await Navigator.of(context).push<bool>(
     MaterialPageRoute(
-      builder: (_) => const PaywallScreen(),
+      builder: (_) => PaywallScreen(reason: reason),
       fullscreenDialog: true,
     ),
   );
@@ -21,7 +38,12 @@ Future<bool> showPaywallScreen(BuildContext context) async {
 }
 
 class PaywallScreen extends StatefulWidget {
-  const PaywallScreen({super.key});
+  final PaywallReason reason;
+
+  const PaywallScreen({
+    super.key,
+    this.reason = PaywallReason.voluntaryUpgrade,
+  });
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
@@ -134,6 +156,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ),
               const SizedBox(height: 24),
               const _BenefitRow(text: 'Không giới hạn số lượng bất động sản'),
+              if (widget.reason == PaywallReason.quotaReached) ...[
+                const SizedBox(height: 16),
+                const _QuotaReachedInfoCard(),
+              ],
               const SizedBox(height: 28),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -147,7 +173,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
                 child: Column(
                   children: [
-                    if (priceLabel == null)
+                    if (priceLabel == null && service.productUnavailable)
+                      _ProductLoadIssue(
+                        message:
+                            'Chưa thể tải thông tin gói Pro. Vui lòng thử '
+                            'lại sau.',
+                        onRetry: () => service.retryLoadProduct(),
+                      )
+                    else if (priceLabel == null &&
+                        state.tier == SubscriptionTier.error &&
+                        state.errorMessage != null)
+                      _ProductLoadIssue(
+                        message: state.errorMessage!,
+                        onRetry: () => service.retryLoadProduct(),
+                      )
+                    else if (priceLabel == null)
                       const SizedBox(
                         height: 28,
                         child: Center(
@@ -265,6 +305,75 @@ class _PaywallScreenState extends State<PaywallScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Trạng thái "unavailable"/"error" của giá gói Pro — thay cho spinner vô
+/// hạn khi query store đã hoàn tất nhưng không có kết quả (vd. product chưa
+/// tồn tại trên App Store Connect/Play Console) hoặc lỗi mạng/store.
+class _ProductLoadIssue extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ProductLoadIssue({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 8),
+        TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+      ],
+    );
+  }
+}
+
+/// Info card giải thích TẠI SAO paywall xuất hiện khi bị chặn vì hết quota
+/// Free — chỉ hiện khi [PaywallScreen.reason] là [PaywallReason.quotaReached]
+/// (mục 5/6: không hiện câu này khi người dùng chủ động vào Settings nâng
+/// cấp). Cố tình dùng tông màu trung tính/info, KHÔNG phải màu đỏ cảnh báo
+/// — đây là thông tin sản phẩm bình thường, không phải lỗi.
+class _QuotaReachedInfoCard extends StatelessWidget {
+  const _QuotaReachedInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Bạn đã dùng hết 10 BĐS của gói Free, bao gồm cả BĐS trong '
+              'Thùng rác. Xoá vĩnh viễn bớt BĐS để tiếp tục, hoặc nâng cấp '
+              'PropNote Pro để lưu không giới hạn.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

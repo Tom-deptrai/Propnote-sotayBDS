@@ -1,8 +1,12 @@
+import 'dart:async' show unawaited;
+import 'dart:math' show Point;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/services/app_runtime.dart';
 import '../../data/services/location_service.dart';
+import '../../data/services/map/map_coverage_policy.dart';
 import '../../models/geo_point.dart';
 import '../../models/property.dart';
 import '../../models/property_status.dart';
@@ -11,6 +15,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/app_search_bar.dart';
 import 'widgets/advanced_filter_sheet.dart';
 import 'widgets/map_marker.dart' show currentLocationColor;
+import 'widgets/map_region_selector.dart';
 import 'widgets/property_bottom_sheet.dart';
 import 'widgets/property_map_view.dart';
 
@@ -90,19 +95,20 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  static const GeoPoint _hanoi = GeoPoint(
-    latitude: 21.0285,
-    longitude: 105.8542,
-  );
-
   final TextEditingController _searchController = TextEditingController();
 
   _StatusFilter _filter = _StatusFilter.all;
-  MapAdvancedFilter _advancedFilter = const MapAdvancedFilter();
+  late MapAdvancedFilter _advancedFilter;
   String _query = '';
   PropertyMapController? _mapController;
   GeoPoint? _currentGeoLocation;
   bool _locating = false;
+
+  /// Vùng bản đồ (PMTiles) đang hiển thị — cập nhật qua
+  /// [PropertyMapView.onRegionChanged], dùng để tô sáng đúng nút trong
+  /// [MapRegionSelector]. null trước khi map lần đầu báo cáo vùng (native
+  /// style chưa load xong).
+  String? _activeRegionId;
 
   /// Marker vị trí hiện tại là toggle, không phải hiển thị vĩnh viễn — nếu
   /// GPS trùng vị trí một BĐS, người dùng cần cách tắt nó đi để tap được
@@ -110,6 +116,20 @@ class _MapScreenState extends State<MapScreen> {
   /// (không persist qua restart), tách biệt với [AppState.lastMapLocation]
   /// vốn vẫn luôn được cập nhật mỗi lần lấy GPS thành công.
   bool _showCurrentLocationMarker = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // showPrice/showPriceUnit là lựa chọn đã persist qua AppState (mục 3) —
+    // các trường filter khác (giá/loại BĐS) cố tình KHÔNG persist, chỉ áp
+    // dụng trong phiên hiện tại, nên vẫn khởi tạo từ default của
+    // MapAdvancedFilter.
+    final appState = context.read<AppState>();
+    _advancedFilter = MapAdvancedFilter(
+      showPrice: appState.showPrice,
+      showPriceUnit: appState.showPriceUnit,
+    );
+  }
 
   @override
   void dispose() {
@@ -155,6 +175,15 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  void _onRegionChanged(SupportedMapRegion region) {
+    if (mounted) setState(() => _activeRegionId = region.id);
+    context.read<AppState>().setLastSupportedMapRegionId(region.id);
+  }
+
+  void _selectRegion(SupportedMapRegion region) {
+    _mapController?.switchToRegion(region);
+  }
+
   bool _matches(Property p, AppState state) {
     if (_filter != _StatusFilter.all && p.status != _filter.status) {
       return false;
@@ -191,13 +220,25 @@ class _MapScreenState extends State<MapScreen> {
         .where((p) => _matches(p, state))
         .toList();
     final markerScale = state.markerScale;
+    // Ưu tiên: (1) lastMapLocation NẾU còn nằm trong vùng phủ (HCM/Hà Nội)
+    // → (2) vùng bản đồ ưu tiên đã lưu (lastSupportedMapRegionId) → (3) mặc
+    // định TP.HCM. KHÔNG còn ưu tiên toạ độ BĐS đầu tiên đang hiển thị — đó
+    // là dữ liệu filter/sort-dependent, không phải tín hiệu "vùng bản đồ
+    // người dùng đang muốn xem", dễ gây mở app vào 1 vùng ngẫu nhiên tuỳ
+    // BĐS nào lọt vào danh sách trước. Nếu lastMapLocation nằm NGOÀI vùng
+    // phủ (vd. BĐS/vị trí cuối cùng ở Đà Lạt), KHÔNG mở app lần đầu vào nền
+    // xám chỉ vì lý do đó — rơi về vùng ưu tiên đã lưu, không dùng toạ độ
+    // ngoài vùng phủ làm initial camera. Không tự động gọi GPS chỉ để chọn
+    // map mặc định lúc mở app (không popup permission bất ngờ).
+    final lastMapLocation = state.lastMapLocation;
     final initialLocation =
-        visibleProperties
-            .map((property) => property.location)
-            .nonNulls
-            .firstOrNull ??
-        state.lastMapLocation ??
-        _hanoi;
+        (lastMapLocation != null &&
+            MapCoveragePolicy.isSupported(lastMapLocation))
+        ? lastMapLocation
+        : MapCoveragePolicy.regionById(
+                state.lastSupportedMapRegionId,
+              )?.defaultCenter ??
+              MapCoveragePolicy.hcm.defaultCenter;
 
     return Scaffold(
       backgroundColor: AppColors.mapLand,
@@ -221,6 +262,11 @@ class _MapScreenState extends State<MapScreen> {
               showPrice: _advancedFilter.showPrice,
               showPriceUnit: _advancedFilter.showPriceUnit,
               onMapReady: (controller) => _mapController = controller,
+              onRegionChanged: _onRegionChanged,
+              // Đẩy compass control gốc của MapLibre xuống dưới khối tìm
+              // kiếm/filter chip/chọn vùng ở đầu màn hình — mặc định SDK đặt
+              // sát góc trên-phải nên bị khối UI này che khuất hoàn toàn.
+              compassViewMargins: const Point(8, 200),
             ),
           ),
           SafeArea(
@@ -235,12 +281,19 @@ class _MapScreenState extends State<MapScreen> {
                     onChanged: (v) => setState(() => _query = v),
                     trailing: InkWell(
                       onTap: () async {
+                        final appState = context.read<AppState>();
                         final selected = await showAdvancedFilterSheet(
                           context,
                           initial: _advancedFilter,
+                          activeMapRegionId: _activeRegionId,
+                          onSelectMapRegion: _selectRegion,
                         );
                         if (selected != null && mounted) {
                           setState(() => _advancedFilter = selected);
+                          unawaited(appState.setShowPrice(selected.showPrice));
+                          unawaited(
+                            appState.setShowPriceUnit(selected.showPriceUnit),
+                          );
                         }
                       },
                       customBorder: const CircleBorder(),
@@ -261,13 +314,28 @@ class _MapScreenState extends State<MapScreen> {
                     selected: _filter,
                     onSelected: (f) => setState(() => _filter = f),
                   ),
+                  const SizedBox(height: 8),
+                  MapRegionSelector(
+                    activeRegionId: _activeRegionId,
+                    onSelect: _selectRegion,
+                  ),
                 ],
               ),
             ),
           ),
           Positioned(
             right: 16,
-            bottom: 150,
+            // FAB "+ Thêm BĐS" (RootShell, ngoài MapScreen — MapScreen chỉ
+            // là 1 cell trong IndexedStack, chia sẻ đúng vùng nội dung
+            // Scaffold với RootShell) mặc định neo `endFloat`: cách đáy
+            // vùng content (đúng bằng đáy Stack ở đây, vì MapScreen không
+            // có bottomNavigationBar riêng) 16px, cao 56px chuẩn Material —
+            // mép trên FAB cách đáy 16+56=72px. Đặt nút vị trí hiện tại
+            // cách đáy 136px để mép dưới của nó cách mép trên FAB đúng 64px
+            // (nằm giữa khoảng 60–70px yêu cầu) — đủ thoáng để không bấm
+            // nhầm, đủ gần để bố cục gọn, và nằm THẲNG HÀNG NGANG với FAB
+            // (cùng right: 16) để nhìn cân đối theo trục dọc.
+            bottom: 136,
             child: _RoundIconButton(
               icon: Icons.my_location_rounded,
               iconColor: _showCurrentLocationMarker

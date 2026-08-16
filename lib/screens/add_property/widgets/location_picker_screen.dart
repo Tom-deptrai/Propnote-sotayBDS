@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../../data/services/app_runtime.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/map/map_coverage_policy.dart';
 import '../../../models/geo_point.dart';
+import '../../../state/app_state.dart';
 import '../../../theme/app_colors.dart';
+import '../../map/widgets/map_region_selector.dart';
 import '../../map/widgets/property_map_view.dart';
 
 Future<GeoPoint?> showLocationPickerScreen(
@@ -45,14 +48,37 @@ class LocationPickerScreen extends StatefulWidget {
 }
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
-  static const GeoPoint _hanoi = GeoPoint(
-    latitude: 21.0285,
-    longitude: 105.8542,
-  );
-
   PropertyMapController? _mapController;
-  late GeoPoint _target = widget.initial ?? _hanoi;
+  late GeoPoint _target = widget.initial ?? _defaultTarget();
   bool _locating = false;
+  String? _activeRegionId;
+
+  /// Không có [widget.initial] rõ ràng (BĐS mới, chưa có vị trí) — ưu tiên
+  /// (1) lastMapLocation NẾU còn nằm trong vùng phủ (HCM/Hà Nội) → (2) vùng
+  /// bản đồ ưu tiên đã lưu (lastSupportedMapRegionId) → (3) mặc định
+  /// TP.HCM. Cùng nguyên tắc ưu tiên với Map Screen (xem map_screen.dart)
+  /// — không tự động gọi GPS chỉ để chọn vị trí mở picker.
+  GeoPoint _defaultTarget() {
+    final appState = context.read<AppState>();
+    final lastMapLocation = appState.lastMapLocation;
+    if (lastMapLocation != null &&
+        MapCoveragePolicy.isSupported(lastMapLocation)) {
+      return lastMapLocation;
+    }
+    return MapCoveragePolicy.regionById(
+          appState.lastSupportedMapRegionId,
+        )?.defaultCenter ??
+        MapCoveragePolicy.hcm.defaultCenter;
+  }
+
+  void _onRegionChanged(SupportedMapRegion region) {
+    if (mounted) setState(() => _activeRegionId = region.id);
+    context.read<AppState>().setLastSupportedMapRegionId(region.id);
+  }
+
+  void _selectRegion(SupportedMapRegion region) {
+    _mapController?.switchToRegion(region);
+  }
 
   Future<void> _confirm() async {
     GeoPoint? actualCenter;
@@ -110,6 +136,16 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       appBar: AppBar(
         title: const Text('Chọn trên bản đồ'),
         backgroundColor: AppColors.mapLand,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: MapRegionSelector(
+              activeRegionId: _activeRegionId,
+              onSelect: _selectRegion,
+            ),
+          ),
+        ),
       ),
       body: Stack(
         children: [
@@ -119,6 +155,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               initialZoom: 16,
               onMapReady: (controller) => _mapController = controller,
               onCameraMove: (target) => _target = target,
+              onRegionChanged: _onRegionChanged,
             ),
           ),
           const IgnorePointer(
