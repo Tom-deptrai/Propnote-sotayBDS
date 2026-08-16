@@ -325,7 +325,17 @@ class _MapScreenState extends State<MapScreen> {
           ),
           Positioned(
             right: 16,
-            bottom: 150,
+            // FAB "+ Thêm BĐS" (RootShell, ngoài MapScreen — MapScreen chỉ
+            // là 1 cell trong IndexedStack, chia sẻ đúng vùng nội dung
+            // Scaffold với RootShell) mặc định neo `endFloat`: cách đáy
+            // vùng content (đúng bằng đáy Stack ở đây, vì MapScreen không
+            // có bottomNavigationBar riêng) 16px, cao 56px chuẩn Material —
+            // mép trên FAB cách đáy 16+56=72px. Đặt nút vị trí hiện tại
+            // cách đáy 136px để mép dưới của nó cách mép trên FAB đúng 64px
+            // (nằm giữa khoảng 60–70px yêu cầu) — đủ thoáng để không bấm
+            // nhầm, đủ gần để bố cục gọn, và nằm THẲNG HÀNG NGANG với FAB
+            // (cùng right: 16) để nhìn cân đối theo trục dọc.
+            bottom: 136,
             child: _RoundIconButton(
               icon: Icons.my_location_rounded,
               iconColor: _showCurrentLocationMarker

@@ -54,6 +54,7 @@ class PropertyMapController {
     SupportedMapRegion region, {
     GeoPoint? cameraTarget,
     double? zoom,
+    RegionSwitchReason reason,
   })
   _switchRegion;
   final void Function() _resetNorth;
@@ -95,6 +96,7 @@ class PropertyMapController {
     region,
     cameraTarget: region.defaultCenter,
     zoom: region.defaultZoom,
+    reason: RegionSwitchReason.userSelection,
   );
 
   /// Xoay bản đồ về hướng Bắc (bearing 0°) — KHÔNG đổi center/zoom, dùng cho
@@ -107,6 +109,98 @@ typedef PropertyMapReadyCallback =
 typedef PropertyMapCameraMoveCallback = void Function(GeoPoint target);
 typedef PropertyMapRegionChangedCallback =
     void Function(SupportedMapRegion region);
+
+/// Lý do 1 lần chuyển vùng (`_switchToRegion`) được kích hoạt — quyết định
+/// coverage banner có bị suppress trong lúc chuyển hay không.
+enum RegionSwitchReason {
+  /// Người dùng bấm chọn vùng rõ ràng (nút TP.HCM/Hà Nội trên Map Screen,
+  /// Advanced Filter, hoặc Location Picker) — target luôn là
+  /// `region.defaultCenter`, theo definition nằm TRONG vùng đích, nên toàn
+  /// bộ quá trình chuyển tuyệt đối không cần/không được hiện banner
+  /// "chưa hỗ trợ" dù chỉ 1 frame — xem [RegionSwitchCoverageGuard].
+  userSelection,
+
+  /// Camera/GPS tự nhiên đi vào 1 vùng khác (xem [_organicRegionCheck]) —
+  /// KHÔNG suppress banner: hành vi hiện tại (banner phản ánh đúng theo
+  /// từng frame pan thật, chỉ throttle quyết định chuyển vùng qua debounce/
+  /// cooldown) giữ nguyên hoàn toàn.
+  organicCamera,
+}
+
+/// Quyết định `_isOutsideCoverage` (coverage banner) có được phép cập nhật
+/// từ 1 sự kiện camera hay không, và tự quản lý vòng đời suppress cho 1
+/// lần chuyển vùng CHỦ ĐỘNG ([RegionSwitchReason.userSelection]) — tách
+/// khỏi [PropertyMapView] thành 1 class pure Dart để test được trực tiếp
+/// (không cần platform channel MapLibre thật, vốn không mô phỏng được
+/// trong `flutter_test`).
+///
+/// ## Vì sao cần tách hẳn thành generation-token thay vì 1 bool đơn thuần
+///
+/// Bug quan sát được trên thiết bị thật: bấm chuyển vùng (vd. TP.HCM → Hà
+/// Nội) hiện đúng nhưng banner "chưa hỗ trợ" vẫn thoáng qua hoặc bị kẹt.
+/// Bản vá trước (dùng `_regionSwitchInFlight`, 1 bool, reset về false NGAY
+/// khi block `finally` của `_switchToRegion` chạy) chưa đủ: MapLibre camera
+/// callback là async, và 1 sự kiện `onCameraMove` "muộn" (đại diện cho toạ
+/// độ giữa chừng chuyến bay nhưng tới trễ do platform channel) có thể đến
+/// SAU KHI cờ `bool` đã reset về false — lúc đó guard không còn chặn được
+/// gì nữa, sự kiện muộn đó ghi `_isOutsideCoverage=true` sai.
+///
+/// [RegionSwitchCoverageGuard] sửa dứt điểm bằng cách gắn suppression với
+/// GIÁ TRỊ GENERATION cụ thể của CHÍNH lần switch đang chạy (không phải 1
+/// cờ dùng chung):
+/// - [beginExplicitSwitch] set suppression = generation NGAY khi lần switch
+///   bắt đầu (trước cả khi setStyle/animateCamera chạy).
+/// - [onCameraMove] trong lúc đó bị bỏ qua HOÀN TOÀN — không phân biệt
+///   tươi/muộn, vì suppression không tự hết theo thời gian hay theo trạng
+///   thái "còn đang chạy hay không", mà chỉ hết khi [endExplicitSwitch]
+///   được gọi ĐÚNG với generation đang suppress.
+/// - [endExplicitSwitch] chỉ áp dụng (ghi coverage state + gỡ suppression)
+///   nếu generation truyền vào KHỚP với generation đang suppress — nếu 1
+///   lần switch MỚI hơn đã bắt đầu trong lúc lần này còn chạy (vd. user bấm
+///   Hà Nội rồi bấm TP.HCM liên tiếp), generation sẽ lệch, và lần switch CŨ
+///   sẽ KHÔNG được phép đụng vào state (đang thuộc về lần MỚI) — tự nhiên
+///   loại bỏ hoàn toàn nguy cơ 1 lần switch đã lỗi thời ghi đè kết quả của
+///   lần switch mới nhất.
+/// - Việc ghi coverage state cuối + gỡ suppression trong [endExplicitSwitch]
+///   là 1 THAO TÁC DUY NHẤT (atomic) — không có khoảng hở giữa "hết
+///   suppress" và "coverage state đã đúng" để 1 callback lọt qua.
+@visibleForTesting
+class RegionSwitchCoverageGuard {
+  bool isOutsideCoverage = false;
+  int? _explicitSwitchSuppressGeneration;
+
+  /// true nếu đang có 1 lần chuyển vùng chủ động suppress banner — chỉ
+  /// dùng để observe/test, không cần thiết cho logic chính.
+  bool get isSuppressing => _explicitSwitchSuppressGeneration != null;
+
+  void beginExplicitSwitch(int generation) {
+    _explicitSwitchSuppressGeneration = generation;
+  }
+
+  void endExplicitSwitch(int generation, {required bool isOutsideCoverage}) {
+    if (_explicitSwitchSuppressGeneration != generation) {
+      // Đã bị 1 lần switch MỚI hơn ghi đè — state hiện tại (kể cả
+      // isOutsideCoverage) thuộc về lần switch đó, không phải lần này.
+      return;
+    }
+    this.isOutsideCoverage = isOutsideCoverage;
+    _explicitSwitchSuppressGeneration = null;
+  }
+
+  /// Huỷ suppression vô điều kiện (dùng khi switch thất bại/widget bị
+  /// dispose giữa chừng) — coverage state giữ nguyên giá trị cũ, để lần
+  /// [onCameraMove] tiếp theo (organic) tự đối chiếu lại theo thực tế.
+  void cancelSuppression(int generation) {
+    if (_explicitSwitchSuppressGeneration == generation) {
+      _explicitSwitchSuppressGeneration = null;
+    }
+  }
+
+  void onCameraMove({required bool isOutsideCoverage}) {
+    if (_explicitSwitchSuppressGeneration != null) return;
+    this.isOutsideCoverage = isOutsideCoverage;
+  }
+}
 
 /// Renderer adapter: bọc widget bản đồ MapLibre + basemap [BasemapProviders]
 /// đằng sau một API domain-friendly (GeoPoint, PropertyStatus, callback đơn
@@ -227,9 +321,15 @@ class _PropertyMapViewState extends State<PropertyMapView> {
   final Map<String, String> _styleJsonByRegionId = {};
   String? _initialStyleJson;
   bool _mapSetupFailed = false;
-  bool _isOutsideCoverage = false;
   bool _regionSwitchInFlight = false;
   int _regionSwitchGeneration = 0;
+
+  /// Xem doc comment đầy đủ ở [RegionSwitchCoverageGuard] — quản lý
+  /// `isOutsideCoverage` (coverage banner) và suppress nó trong lúc 1 lần
+  /// chuyển vùng CHỦ ĐỘNG đang chạy, bằng generation-token thay vì 1 `bool`
+  /// đơn thuần (đã kiểm chứng KHÔNG đủ an toàn trước bug race condition
+  /// banner quan sát được trên thiết bị thật).
+  final RegionSwitchCoverageGuard _coverageGuard = RegionSwitchCoverageGuard();
 
   // Vị trí camera mới nhất (mọi lần onCameraMove, kể cả khi đang bay do
   // animateCamera của chính app) — dùng làm input cho quyết định TỰ ĐỘNG
@@ -340,7 +440,7 @@ class _PropertyMapViewState extends State<PropertyMapView> {
   Future<void> _prepareStyle() async {
     final region = MapCoveragePolicy.nearestRegion(widget.initialTarget);
     _activeRegion = region;
-    _isOutsideCoverage = !region.contains(widget.initialTarget);
+    _coverageGuard.isOutsideCoverage = !region.contains(widget.initialTarget);
     try {
       final json = await _prepareStyleForRegion(region);
       if (!mounted) return;
@@ -374,12 +474,21 @@ class _PropertyMapViewState extends State<PropertyMapView> {
     SupportedMapRegion newRegion, {
     GeoPoint? cameraTarget,
     double? zoom,
+    RegionSwitchReason reason = RegionSwitchReason.organicCamera,
   }) async {
     if (_regionSwitchInFlight || newRegion.id == _activeRegion?.id) return;
     final controller = _controller;
     if (controller == null) return;
     _regionSwitchInFlight = true;
     final generation = ++_regionSwitchGeneration;
+    if (reason == RegionSwitchReason.userSelection) {
+      // Suppress banner NGAY từ đầu — trước cả khi setStyle/animateCamera
+      // bắt đầu — để không frame camera trung gian nào trong toàn bộ quá
+      // trình lọt qua được. Xem doc comment đầy đủ ở
+      // [RegionSwitchCoverageGuard] để biết vì sao KHÔNG dùng
+      // `_regionSwitchInFlight` cho việc này.
+      _coverageGuard.beginExplicitSwitch(generation);
+    }
     try {
       final json = await _prepareStyleForRegion(newRegion);
       if (generation != _regionSwitchGeneration || !mounted) return;
@@ -407,8 +516,21 @@ class _PropertyMapViewState extends State<PropertyMapView> {
         // switch, xem [_organicRegionCheck]) — không hardcode false, để
         // đúng ngay cả nếu sau này có caller truyền cameraTarget khác.
         final finalPoint = cameraTarget ?? _lastCameraPoint;
-        _isOutsideCoverage =
+        final outsideCoverage =
             finalPoint != null && !newRegion.contains(finalPoint);
+        if (reason == RegionSwitchReason.userSelection) {
+          // Ghi coverage state CUỐI + gỡ suppression trong 1 THAO TÁC DUY
+          // NHẤT (atomic) — không có khoảng hở nào 1 callback camera đến
+          // muộn có thể lọt qua giữa "hết suppress" và "coverage state đã
+          // đúng". Chỉ áp dụng nếu generation vẫn khớp — nếu 1 lần switch
+          // MỚI hơn đã bắt đầu, cuộc gọi này tự động là no-op.
+          _coverageGuard.endExplicitSwitch(
+            generation,
+            isOutsideCoverage: outsideCoverage,
+          );
+        } else {
+          _coverageGuard.isOutsideCoverage = outsideCoverage;
+        }
       });
       widget.onRegionChanged?.call(newRegion);
     } catch (error, stackTrace) {
@@ -417,6 +539,11 @@ class _PropertyMapViewState extends State<PropertyMapView> {
     } finally {
       _regionSwitchInFlight = false;
       _regionSwitchSettledAt = DateTime.now();
+      // Lưới an toàn: nếu switch thất bại/return sớm trước khi tới được
+      // setState ở trên (suppression set ở đầu hàm nhưng chưa từng được gỡ
+      // đúng cách), gỡ nó ở đây — no-op nếu đã được gỡ đúng cách rồi (generation
+      // đã null hoặc đã lệch sang 1 lần switch mới hơn).
+      _coverageGuard.cancelSuppression(generation);
     }
   }
 
@@ -449,8 +576,8 @@ class _PropertyMapViewState extends State<PropertyMapView> {
     final region = _activeRegion;
     if (region == null) return;
     final outside = !region.contains(point);
-    if (outside != _isOutsideCoverage) {
-      setState(() => _isOutsideCoverage = outside);
+    if (outside != _coverageGuard.isOutsideCoverage) {
+      setState(() => _coverageGuard.onCameraMove(isOutsideCoverage: outside));
     }
   }
 
@@ -781,17 +908,19 @@ class _PropertyMapViewState extends State<PropertyMapView> {
               // Cập nhật gray/banner theo thời gian thực khi pan (mượt, phản
               // hồi ngay) — QUYẾT ĐỊNH tự động chuyển vùng thì đợi camera
               // dừng hẳn (debounce bên dưới) để không phản ứng với toạ độ
-              // thoáng qua giữa lúc đang bay. BỎ QUA hoàn toàn khi đang có 1
-              // lần chuyển vùng CHỦ ĐỘNG (nút bấm/tự động) đang chạy: style
-              // đã đổi sang vùng MỚI nhưng `_activeRegion` (Dart-side) chỉ
-              // cập nhật SAU KHI animateCamera hoàn tất — nếu không chặn,
-              // các frame camera TRUNG GIAN trong lúc bay (vẫn đang so với
-              // `_activeRegion` CŨ) sẽ bật nhầm banner "chưa hỗ trợ" dù màn
-              // hình đã hiển thị đúng vùng mới, chỉ tự hết khi có thao tác
-              // pan/chạm tiếp theo gọi lại _updateCoverageState với
-              // `_activeRegion` đã đúng. [_switchToRegion] tự tính coverage
-              // ĐÚNG 1 LẦN dựa trên điểm đến cuối cùng ngay khi switch xong.
-              if (!_regionSwitchInFlight) {
+              // thoáng qua giữa lúc đang bay. BỎ QUA hoàn toàn khi có 1 lần
+              // chuyển vùng CHỦ ĐỘNG (nút bấm) đang suppress banner — xem
+              // doc comment đầy đủ ở [RegionSwitchCoverageGuard]: suppression
+              // ở nguyên trạng thái "đang suppress" xuyên suốt toàn bộ quá
+              // trình chuyển (kể cả các frame/callback camera đến TRỄ sau
+              // khi style đã đổi xong), chỉ được gỡ ATOMIC cùng lúc với
+              // `_activeRegion`/coverage state cuối cùng trong
+              // [_switchToRegion] — không có khoảng hở nào 1 callback "muộn"
+              // có thể lọt qua và tự ghi `isOutsideCoverage=true` sai. Kiểm
+              // tra ở đây (thay vì chỉ dựa vào check nội bộ của
+              // [RegionSwitchCoverageGuard.onCameraMove]) để tránh 1
+              // `setState` thừa khi đang suppress.
+              if (!_coverageGuard.isSuppressing) {
                 _updateCoverageState(point);
               }
               if (_currentLocationTarget != null) {
@@ -830,7 +959,7 @@ class _PropertyMapViewState extends State<PropertyMapView> {
             top: screenPosition.dy - 32,
             child: const CurrentLocationMarker(),
           ),
-        if (widget.showCoverageBanner && _isOutsideCoverage)
+        if (widget.showCoverageBanner && _coverageGuard.isOutsideCoverage)
           const Positioned(
             left: 16,
             right: 16,
