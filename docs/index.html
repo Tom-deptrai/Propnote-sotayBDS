@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PropNote</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --text-primary: #17242f;
+    --text-secondary: #4b5a66;
+    --border: #e2e6e9;
+    --navy: #1e3a5f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12181d;
+      --surface: #1a2129;
+      --text-primary: #eef2f5;
+      --text-secondary: #a9b6bf;
+      --border: #2a333b;
+      --navy: #6f9bd1;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 0 0 8px;
+  }
+  .tagline {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+  .links { display: flex; flex-direction: column; gap: 12px; }
+  .links a {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .links a:hover { border-color: var(--navy); }
+  footer {
+    margin-top: 40px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+  }
+  a.plain { color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PropNote</h1>
+  <div class="tagline">Sổ tay bất động sản cá nhân có bản đồ và thư viện ảnh.</div>
+  <div class="links">
+    <a href="privacy.html">Chính sách quyền riêng tư</a>
+    <a href="terms.html">Điều khoản sử dụng</a>
+    <a href="support.html">Hỗ trợ &amp; liên hệ</a>
+  </div>
+  <footer>
+    © 2026 PropNote · Liên hệ: <a class="plain" href="mailto:Timeforwork789@icloud.com">Timeforwork789@icloud.com</a>
+  </footer>
+</div>
+</body>
+</html>

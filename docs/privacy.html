@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chính sách quyền riêng tư — PropNote</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --text-primary: #17242f;
+    --text-secondary: #4b5a66;
+    --border: #e2e6e9;
+    --navy: #1e3a5f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12181d;
+      --surface: #1a2129;
+      --text-primary: #eef2f5;
+      --text-secondary: #a9b6bf;
+      --border: #2a333b;
+      --navy: #6f9bd1;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+  header {
+    margin-bottom: 32px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 0 0 6px;
+  }
+  .updated {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  nav.crosslinks {
+    margin-top: 14px;
+    font-size: 13.5px;
+  }
+  nav.crosslinks a {
+    color: var(--navy);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  nav.crosslinks a:hover { text-decoration: underline; }
+  nav.crosslinks span.sep {
+    color: var(--text-secondary);
+    margin: 0 8px;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 32px 0 10px;
+    color: var(--text-primary);
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 20px 0 8px;
+    color: var(--text-primary);
+  }
+  p, li {
+    font-size: 15px;
+    color: var(--text-secondary);
+  }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 10px 0 20px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  td { color: var(--text-secondary); }
+  footer {
+    margin-top: 40px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+  a { color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Chính sách quyền riêng tư — PropNote</h1>
+    <div class="updated">Cập nhật lần cuối: tháng 8, 2026 · Áp dụng cho PropNote phiên bản 1.0.0</div>
+    <nav class="crosslinks">
+      <a href="terms.html">Điều khoản sử dụng</a>
+      <span class="sep">·</span>
+      <a href="support.html">Hỗ trợ &amp; liên hệ</a>
+    </nav>
+  </header>
+
+  <div class="card">
+    <p style="margin:0">
+      PropNote là ứng dụng <strong>local-first</strong>: toàn bộ dữ liệu bất
+      động sản (thông tin, hình ảnh, tài liệu, ghi chú, vị trí) được lưu
+      trực tiếp trên thiết bị của bạn. PropNote <strong>không có tài khoản
+      người dùng</strong>, <strong>không có máy chủ (backend) riêng</strong>,
+      và không đồng bộ dữ liệu của bạn lên bất kỳ nơi nào.
+    </p>
+  </div>
+
+  <h2>1. Dữ liệu chỉ xử lý và lưu trên thiết bị của bạn</h2>
+  <p>Các dữ liệu dưới đây <strong>không rời khỏi thiết bị</strong> trong quá
+  trình sử dụng bình thường — không có request mạng nào gửi chúng ra ngoài.</p>
+  <table>
+    <tr><th>Dữ liệu</th><th>Mục đích</th></tr>
+    <tr><td>Thông tin bất động sản (tên, địa chỉ, giá, diện tích, trạng thái, loại, ghi chú, tag)</td><td>Chức năng cốt lõi của app</td></tr>
+    <tr><td>Hình ảnh bất động sản</td><td>Ghi chú/nhận diện bất động sản</td></tr>
+    <tr><td>Tài liệu đính kèm</td><td>Lưu giấy tờ liên quan bất động sản</td></tr>
+    <tr><td>Vị trí (toạ độ GPS)</td><td>Đặt ghim và hiển thị bất động sản trên bản đồ</td></tr>
+    <tr><td>Tên/số điện thoại liên hệ (do bạn tự nhập)</td><td>Ghi chú người liên hệ cho từng bất động sản — không đọc danh bạ máy</td></tr>
+    <tr><td>Bản đồ nền offline (TP.HCM, Hà Nội)</td><td>Hiển thị bản đồ — dữ liệu đóng gói sẵn trong app, không tải qua mạng</td></tr>
+  </table>
+
+  <h2>2. Dữ liệu có thể được nền tảng (Apple/hệ điều hành) xử lý</h2>
+  <p>PropNote không tự gửi các dữ liệu này đi đâu — chúng được xử lý bởi
+  chính hệ điều hành hoặc bởi Apple, không qua máy chủ của PropNote (vì
+  PropNote không có máy chủ nào).</p>
+  <ul>
+    <li><strong>Giọng nói (khi bạn dùng nhập liệu bằng giọng nói):</strong>
+    được nhận dạng bởi dịch vụ giọng nói của hệ điều hành — tuỳ thiết
+    bị/phiên bản iOS, việc này có thể xử lý ngay trên máy hoặc qua dịch vụ
+    giọng nói của Apple. PropNote chỉ nhận lại văn bản kết quả, không tự
+    lưu file âm thanh.</li>
+    <li><strong>Giao dịch mua PropNote Pro:</strong> được xử lý hoàn toàn bởi
+    Apple App Store (StoreKit). PropNote không thấy và không lưu số thẻ hay
+    thông tin thanh toán của bạn — chỉ lưu cục bộ trạng thái "Free"/"Pro"
+    trên thiết bị để hiển thị đúng giao diện.</li>
+  </ul>
+
+  <h2>3. Dữ liệu chỉ rời thiết bị khi chính bạn chủ động chia sẻ</h2>
+  <ul>
+    <li><strong>Sao lưu (.zip):</strong> chỉ được tạo và gửi đi khi bạn chủ
+    động bấm "Sao lưu" và tự chọn nơi lưu/chia sẻ (Files, email, AirDrop...).
+    PropNote không tự động tải bản sao lưu lên bất kỳ máy chủ nào.</li>
+    <li><strong>Chỉ đường bằng Google Maps:</strong> chỉ khi bạn chủ động
+    bấm nút này, PropNote mở ứng dụng Google Maps (hoặc ứng dụng bản đồ
+    khác đã cài) qua liên kết ngoài — bước này cần Internet và do ứng dụng
+    bên ngoài đó xử lý, không phải PropNote.</li>
+  </ul>
+
+  <h2>4. Quyền truy cập PropNote yêu cầu trên thiết bị</h2>
+  <table>
+    <tr><th>Quyền</th><th>Lý do</th></tr>
+    <tr><td>Vị trí (khi đang dùng app)</td><td>Đặt ghim và hiển thị bất động sản gần bạn</td></tr>
+    <tr><td>Camera / Thư viện ảnh</td><td>Chụp/chọn ảnh cho bất động sản</td></tr>
+    <tr><td>Microphone / Nhận dạng giọng nói</td><td>Nhập liệu bằng giọng nói (tuỳ chọn)</td></tr>
+  </table>
+  <p>Bạn có thể thu hồi bất kỳ quyền nào ở trên bất kỳ lúc nào trong Cài đặt
+  hệ thống của thiết bị (iOS: Cài đặt → PropNote). Thu hồi quyền không xoá
+  dữ liệu đã lưu trong app — chỉ ngừng cho phép PropNote truy cập quyền đó
+  ở các lần dùng sau.</p>
+
+  <h2>5. Lưu giữ và xoá dữ liệu</h2>
+  <ul>
+    <li>Dữ liệu bất động sản được giữ trên thiết bị cho tới khi bạn chủ động xoá.</li>
+    <li>Xoá một bất động sản (thao tác thông thường) sẽ chuyển nó vào Thùng rác — dữ liệu vẫn còn và có thể khôi phục.</li>
+    <li>Xoá vĩnh viễn khỏi Thùng rác sẽ loại bỏ hoàn toàn dữ liệu bất động sản đó (thông tin, ảnh, tài liệu đính kèm) khỏi PropNote.</li>
+    <li>Gỡ cài đặt ứng dụng sẽ khiến hệ điều hành xoá toàn bộ dữ liệu app trên thiết bị theo cơ chế chuẩn của iOS.</li>
+    <li>Vì PropNote không có tài khoản hay máy chủ riêng, không có dữ liệu nào ở phía máy chủ cần bạn gửi yêu cầu xoá — mọi thao tác xoá đều xảy ra ngay trên thiết bị của bạn.</li>
+    <li>Bản sao lưu (.zip) do bạn tự tạo và tự lưu/chia sẻ (Files, email, AirDrop, iCloud, ...) nằm ngoài phạm vi kiểm soát của PropNote sau khi đã chia sẻ ra ngoài — PropNote không thể tự xoá các bản sao lưu đó.</li>
+  </ul>
+
+  <h2>6. Những gì PropNote KHÔNG làm</h2>
+  <ul>
+    <li>Không thu thập, chia sẻ hay bán dữ liệu bất động sản/hình ảnh/vị
+    trí của bạn cho bên thứ ba.</li>
+    <li>Không có quảng cáo, không theo dõi (tracking) người dùng giữa các
+    ứng dụng/trang web khác.</li>
+    <li>Không có tài khoản, không yêu cầu đăng nhập.</li>
+    <li>Không tích hợp SDK phân tích (analytics)/crash-reporting bên thứ ba.</li>
+  </ul>
+
+  <h2>7. Trách nhiệm sao lưu dữ liệu</h2>
+  <p>Vì dữ liệu nằm hoàn toàn trên thiết bị (trừ giao dịch mua qua App
+  Store và nhận dạng giọng nói nêu ở mục 2), <strong>bạn là người duy nhất
+  chịu trách nhiệm sao lưu dữ liệu của mình</strong> bằng tính năng "Sao lưu"
+  trong app. Nếu xoá ứng dụng hoặc mất thiết bị mà chưa sao lưu, dữ liệu sẽ
+  không thể khôi phục.</p>
+
+  <h2>8. Thay đổi chính sách này</h2>
+  <p>Nếu PropNote thay đổi cách xử lý dữ liệu trong các phiên bản sau (vd.
+  thêm tính năng mới), trang này sẽ được cập nhật tương ứng trước khi
+  phiên bản đó phát hành.</p>
+
+  <h2>9. Liên hệ</h2>
+  <p>Nếu bạn có câu hỏi về chính sách quyền riêng tư này, vui lòng liên hệ:
+  <br><strong><a href="mailto:Timeforwork789@icloud.com">Timeforwork789@icloud.com</a></strong>
+  — xem thêm trang <a href="support.html">Hỗ trợ &amp; liên hệ</a>.</p>
+
+  <footer>
+    © 2026 PropNote. Trang này mô tả đúng cách PropNote phiên bản 1.0.0 xử
+    lý dữ liệu tại thời điểm phát hành. Xem thêm
+    <a href="terms.html">Điều khoản sử dụng</a>.
+  </footer>
+</div>
+</body>
+</html>
