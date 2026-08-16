@@ -7,8 +7,25 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:propnote/data/repositories/app_repository.dart';
+import 'package:propnote/subscription/entitlement_evaluator.dart';
 import 'package:propnote/subscription/subscription_service.dart';
 import 'package:propnote/subscription/subscription_state.dart';
+
+/// Evaluator giả — cho test kiểm soát trực tiếp [EntitlementResult] mà
+/// không cần mock platform channel StoreKit2/Play Billing thật (đúng tinh
+/// thần "tách entitlement evaluator thành pure/testable abstraction").
+class _FakeEntitlementEvaluator implements EntitlementEvaluator {
+  _FakeEntitlementEvaluator(this.result);
+
+  EntitlementResult result;
+  int callCount = 0;
+
+  @override
+  Future<EntitlementResult> currentEntitlement(String productId) async {
+    callCount++;
+    return result;
+  }
+}
 
 /// Repository giả tối thiểu — chỉ cài đặt readSetting/writeSetting (dùng
 /// cho cache entitlement); mọi thao tác dữ liệu BĐS khác không liên quan
@@ -123,10 +140,12 @@ void main() {
     await fakePlatform.dispose();
   });
 
-  SubscriptionService buildService() => SubscriptionService(
-    inAppPurchase: InAppPurchase.instance,
-    repository: fakeRepository,
-  );
+  SubscriptionService buildService({EntitlementEvaluator? entitlementEvaluator}) =>
+      SubscriptionService(
+        inAppPurchase: InAppPurchase.instance,
+        repository: fakeRepository,
+        entitlementEvaluator: entitlementEvaluator,
+      );
 
   test('product loaded — state exposes localized price from store', () async {
     fakePlatform.products = [_proProduct(price: '199.000 ₫')];
@@ -152,17 +171,22 @@ void main() {
     expect(fakeRepository.settings['subscription_entitlement_cache'], 'pro');
   });
 
-  test('restore success → Pro', () async {
-    fakePlatform.products = [_proProduct()];
-    final service = buildService();
-    await service.initialize();
+  test(
+    'restore success → Pro (no entitlement evaluator available on this '
+    'platform — falls back to trusting the restored signal as-is, same as '
+    'production behavior on Android)',
+    () async {
+      fakePlatform.products = [_proProduct()];
+      final service = buildService();
+      await service.initialize();
 
-    fakePlatform.emit(_purchase(PurchaseStatus.restored));
-    await Future<void>.delayed(Duration.zero);
+      fakePlatform.emit(_purchase(PurchaseStatus.restored));
+      await Future<void>.delayed(Duration.zero);
 
-    expect(service.state.tier, SubscriptionTier.pro);
-    expect(service.isPro, isTrue);
-  });
+      expect(service.state.tier, SubscriptionTier.pro);
+      expect(service.isPro, isTrue);
+    },
+  );
 
   test('pending → chưa unlock Pro', () async {
     fakePlatform.products = [_proProduct()];
@@ -360,5 +384,131 @@ void main() {
         expect(service.state.tier, SubscriptionTier.free);
       },
     );
+
+    test(
+      'two overlapping reconciliations (rapid resume) do not both call '
+      'restorePurchases — the in-flight guard makes the second call a '
+      'no-op instead of double-querying the store',
+      () async {
+        fakePlatform.products = [_proProduct()];
+        final service = buildService();
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        final callsBefore = fakePlatform.restoreCallCount;
+
+        // Fire resume twice back-to-back with no await between them — the
+        // second call must observe _reconcileInFlight already true.
+        service.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        service.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(fakePlatform.restoreCallCount, callsBefore + 1);
+      },
+    );
+  });
+
+  group('entitlement evaluator overrides the restored heuristic', () {
+    test(
+      'cached Pro + evaluator confirms notActive → downgrades to Free even '
+      'though purchaseStream emitted a restored transaction for the old '
+      'product (the exact "old restored transaction but not active" case)',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        final evaluator = _FakeEntitlementEvaluator(EntitlementResult.notActive);
+        final service = buildService(entitlementEvaluator: evaluator);
+        await service.initialize();
+        expect(service.state.tier, SubscriptionTier.pro);
+
+        fakePlatform.emit(_purchase(PurchaseStatus.restored));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(service.state.tier, SubscriptionTier.free);
+        expect(service.isPro, isFalse);
+        expect(fakeRepository.settings['subscription_entitlement_cache'], 'free');
+        expect(evaluator.callCount, greaterThanOrEqualTo(1));
+      },
+    );
+
+    test(
+      'cached Pro + evaluator confirms active → stays Pro (restored '
+      'transaction is genuinely still valid)',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        final evaluator = _FakeEntitlementEvaluator(EntitlementResult.active);
+        final service = buildService(entitlementEvaluator: evaluator);
+        await service.initialize();
+
+        fakePlatform.emit(_purchase(PurchaseStatus.restored));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(service.state.tier, SubscriptionTier.pro);
+        expect(service.isPro, isTrue);
+      },
+    );
+
+    test(
+      'no cache + evaluator confirms active during reconciliation alone '
+      '(no purchaseStream event needed) → becomes Pro — covers reinstall/ '
+      'new device with a genuinely active StoreKit2 entitlement',
+      () async {
+        fakePlatform.products = [_proProduct()];
+        final evaluator = _FakeEntitlementEvaluator(EntitlementResult.active);
+        final service = buildService(entitlementEvaluator: evaluator);
+
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.state.tier, SubscriptionTier.pro);
+        expect(service.isPro, isTrue);
+        expect(
+          fakeRepository.settings['subscription_entitlement_cache'],
+          'pro',
+        );
+      },
+    );
+
+    test(
+      'no cache + evaluator confirms notActive → stays Free', () async {
+        fakePlatform.products = [_proProduct()];
+        final evaluator = _FakeEntitlementEvaluator(EntitlementResult.notActive);
+        final service = buildService(entitlementEvaluator: evaluator);
+
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        expect(service.state.tier, SubscriptionTier.free);
+        expect(service.isPro, isFalse);
+      },
+    );
+
+    test(
+      'evaluator result unknown falls back to the old restorePurchases-only '
+      'heuristic unchanged (Android production behavior)',
+      () async {
+        fakeRepository.settings['subscription_entitlement_cache'] = 'pro';
+        fakePlatform.products = [_proProduct()];
+        final evaluator = _FakeEntitlementEvaluator(EntitlementResult.unknown);
+        final service = buildService(entitlementEvaluator: evaluator);
+
+        await service.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+
+        // Same fallback as the "no restored purchase" hardening test above:
+        // restore completed with nothing confirmed → downgrade.
+        expect(service.state.tier, SubscriptionTier.free);
+      },
+    );
+  });
+
+  group('EntitlementEvaluator implementations', () {
+    test('NullEntitlementEvaluator always returns unknown', () async {
+      const evaluator = NullEntitlementEvaluator();
+      expect(
+        await evaluator.currentEntitlement(proYearlyProductId),
+        EntitlementResult.unknown,
+      );
+    });
   });
 }

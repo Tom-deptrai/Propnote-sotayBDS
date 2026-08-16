@@ -53,6 +53,7 @@ dependencies:
   open_filex: ^4.7.0
   maplibre_gl: ^0.26.2
   in_app_purchase: ^3.3.0
+  in_app_purchase_storekit: ^0.4.11
   package_info_plus: ^10.2.1
 
 dev_dependencies:

@@ -53,13 +53,21 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   bool _locating = false;
   String? _activeRegionId;
 
-  /// Không có [widget.initial] rõ ràng (BĐS mới, chưa có vị trí) — mở picker
-  /// tại vùng bản đồ ưu tiên gần nhất người dùng từng dùng, nếu có; nếu
-  /// không, mặc định TP.HCM. Cùng nguyên tắc ưu tiên với Map Screen (xem
-  /// map_screen.dart) — không tự động gọi GPS chỉ để chọn vị trí mở picker.
+  /// Không có [widget.initial] rõ ràng (BĐS mới, chưa có vị trí) — ưu tiên
+  /// (1) lastMapLocation NẾU còn nằm trong vùng phủ (HCM/Hà Nội) → (2) vùng
+  /// bản đồ ưu tiên đã lưu (lastSupportedMapRegionId) → (3) mặc định
+  /// TP.HCM. Cùng nguyên tắc ưu tiên với Map Screen (xem map_screen.dart)
+  /// — không tự động gọi GPS chỉ để chọn vị trí mở picker.
   GeoPoint _defaultTarget() {
-    final lastRegionId = context.read<AppState>().lastSupportedMapRegionId;
-    return MapCoveragePolicy.regionById(lastRegionId)?.defaultCenter ??
+    final appState = context.read<AppState>();
+    final lastMapLocation = appState.lastMapLocation;
+    if (lastMapLocation != null &&
+        MapCoveragePolicy.isSupported(lastMapLocation)) {
+      return lastMapLocation;
+    }
+    return MapCoveragePolicy.regionById(
+          appState.lastSupportedMapRegionId,
+        )?.defaultCenter ??
         MapCoveragePolicy.hcm.defaultCenter;
   }
 

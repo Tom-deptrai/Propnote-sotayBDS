@@ -205,21 +205,25 @@ class _MapScreenState extends State<MapScreen> {
         .where((p) => _matches(p, state))
         .toList();
     final markerScale = state.markerScale;
-    // Ưu tiên: (A) toạ độ BĐS đang hiển thị đầu tiên → (A) lastMapLocation
-    // (camera/GPS gần nhất người dùng thực sự dùng) → (C) vùng bản đồ ưu
-    // tiên đã lưu (last-supported-region) → mặc định TP.HCM. Không tự động
-    // gọi GPS chỉ để chọn map mặc định lúc mở app (không popup permission
-    // bất ngờ) — nếu GPS trong 1 vùng hỗ trợ, điều đó tự nhiên đã phản ánh
-    // qua lastMapLocation từ lần dùng "vị trí hiện tại" trước đó.
+    // Ưu tiên: (1) lastMapLocation NẾU còn nằm trong vùng phủ (HCM/Hà Nội)
+    // → (2) vùng bản đồ ưu tiên đã lưu (lastSupportedMapRegionId) → (3) mặc
+    // định TP.HCM. KHÔNG còn ưu tiên toạ độ BĐS đầu tiên đang hiển thị — đó
+    // là dữ liệu filter/sort-dependent, không phải tín hiệu "vùng bản đồ
+    // người dùng đang muốn xem", dễ gây mở app vào 1 vùng ngẫu nhiên tuỳ
+    // BĐS nào lọt vào danh sách trước. Nếu lastMapLocation nằm NGOÀI vùng
+    // phủ (vd. BĐS/vị trí cuối cùng ở Đà Lạt), KHÔNG mở app lần đầu vào nền
+    // xám chỉ vì lý do đó — rơi về vùng ưu tiên đã lưu, không dùng toạ độ
+    // ngoài vùng phủ làm initial camera. Không tự động gọi GPS chỉ để chọn
+    // map mặc định lúc mở app (không popup permission bất ngờ).
+    final lastMapLocation = state.lastMapLocation;
     final initialLocation =
-        visibleProperties
-            .map((property) => property.location)
-            .nonNulls
-            .firstOrNull ??
-        state.lastMapLocation ??
-        MapCoveragePolicy.regionById(state.lastSupportedMapRegionId)
-            ?.defaultCenter ??
-        MapCoveragePolicy.hcm.defaultCenter;
+        (lastMapLocation != null &&
+            MapCoveragePolicy.isSupported(lastMapLocation))
+        ? lastMapLocation
+        : MapCoveragePolicy.regionById(
+                state.lastSupportedMapRegionId,
+              )?.defaultCenter ??
+              MapCoveragePolicy.hcm.defaultCenter;
 
     return Scaffold(
       backgroundColor: AppColors.mapLand,
