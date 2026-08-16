@@ -1,14 +1,25 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../../data/services/map/basemap_provider.dart';
+import '../../../data/services/map/local_map_assets_service.dart';
+import '../../../data/services/map/map_coverage_policy.dart';
 import '../../../models/geo_point.dart';
 import '../../../models/property_status.dart';
+import '../../../theme/app_colors.dart';
 import '../../../utils/formatters.dart';
 import 'map_marker.dart';
 import 'property_map_marker_icons.dart';
+
+/// Dùng chung 1 instance cho toàn app: nhiều [PropertyMapView] có thể tồn
+/// tại cùng lúc (Map Screen + mini-map preview trên Property Detail...) —
+/// copy PMTiles/fonts ra đĩa chỉ cần làm 1 lần, cache theo path trong bộ nhớ
+/// (xem [LocalMapAssetsService]) chứ không phải theo từng widget instance.
+final LocalMapAssetsService _sharedLocalMapAssets = LocalMapAssetsService();
 
 /// Một marker hiển thị trên [PropertyMapView] — hoặc marker BĐS (có
 /// [status]) hoặc marker vị trí hiện tại ([isCurrentLocation]).
@@ -99,6 +110,12 @@ class PropertyMapView extends StatefulWidget {
   /// vì đó là bản đồ tương tác người dùng đang tự điều khiển.
   final bool followInitialTargetChanges;
 
+  /// Hiện banner "Bản đồ chưa hỗ trợ khu vực này." khi camera nằm ngoài vùng
+  /// coverage local (xem [MapCoveragePolicy]). Mặc định true cho Map Screen/
+  /// Location Picker; mini-map preview tắt banner này (không đủ chỗ hiển
+  /// thị) nhưng vẫn hiện nền xám + marker bình thường.
+  final bool showCoverageBanner;
+
   const PropertyMapView({
     super.key,
     required this.initialTarget,
@@ -112,6 +129,7 @@ class PropertyMapView extends StatefulWidget {
     this.onMapReady,
     this.onCameraMove,
     this.followInitialTargetChanges = false,
+    this.showCoverageBanner = true,
   });
 
   @override
@@ -155,6 +173,99 @@ class _PropertyMapViewState extends State<PropertyMapView> {
   Offset? _currentLocationScreenPosition;
   int _currentLocationGeneration = 0;
 
+  // Bản đồ local (PMTiles) — vùng coverage active + style JSON được dựng
+  // KHÔNG ĐỒNG BỘ (phải copy PMTiles/fonts ra đĩa trước, xem
+  // LocalMapAssetsService) trước khi MapLibreMap có thể render. Vùng active
+  // được xác định MỘT LẦN từ initialTarget lúc khởi tạo (không đổi lại khi
+  // initialTarget đổi qua followInitialTargetChanges) — nếu camera sau đó đi
+  // tới điểm ngoài vùng này, hành vi đúng là hiện nền xám + banner, không
+  // phải nạp lại style của vùng khác.
+  SupportedMapRegion? _activeRegion;
+  String? _styleJson;
+  bool _mapSetupFailed = false;
+  bool _isOutsideCoverage = false;
+
+  // Timer phòng vệ cho _prepareStyle — xem [_raceWithTimeout]. Giữ lại tham
+  // chiếu để CANCEL trong dispose(): Future.timeout() dựng Timer nội bộ
+  // không expose ra ngoài để huỷ, nên nếu widget bị dispose trước khi
+  // platform channel phản hồi, Timer đó vẫn "pending" tới khi tự bắn — vi
+  // phạm invariant "no pending timers" của flutter_test và làm rớt các test
+  // khác chạy ngay sau. Timer tự quản lý ở đây được huỷ tường minh trong
+  // dispose() nên không bao giờ rò rỉ qua khỏi vòng đời widget.
+  Timer? _assetTimeoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareStyle();
+  }
+
+  Future<T> _raceWithTimeout<T>(Future<T> future, Duration timeout) {
+    final completer = Completer<T>();
+    _assetTimeoutTimer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Local map asset setup timed out after $timeout'),
+        );
+      }
+    });
+    future.then(
+      (value) {
+        _assetTimeoutTimer?.cancel();
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        _assetTimeoutTimer?.cancel();
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+    return completer.future;
+  }
+
+  Future<void> _prepareStyle() async {
+    final region = MapCoveragePolicy.nearestRegion(widget.initialTarget);
+    _activeRegion = region;
+    _isOutsideCoverage = !region.contains(widget.initialTarget);
+    try {
+      // Timeout phòng vệ: copy asset local bình thường mất dưới 1s (đọc
+      // rootBundle + ghi đĩa), nhưng nếu platform channel (path_provider/
+      // package_info) không phản hồi vì bất kỳ lý do gì (vd. môi trường
+      // không có platform thật), lỗi phải kết thúc CÓ GIỚI HẠN thay vì treo
+      // CircularProgressIndicator (đang animate liên tục) vĩnh viễn.
+      final glyphsTemplate = await _raceWithTimeout(
+        _sharedLocalMapAssets.ensureGlyphsTemplate(),
+        const Duration(seconds: 3),
+      );
+      final pmtilesUrl = await _raceWithTimeout(
+        _sharedLocalMapAssets.ensureRegionPmtilesUrl(region),
+        const Duration(seconds: 3),
+      );
+      final style = buildLocalMapStyle(
+        region: region,
+        pmtilesUrl: pmtilesUrl,
+        glyphsTemplate: glyphsTemplate,
+      );
+      if (!mounted) return;
+      setState(() => _styleJson = jsonEncode(style));
+    } catch (error, stackTrace) {
+      debugPrint('PropertyMapView: không dựng được style bản đồ local: '
+          '$error\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _mapSetupFailed = true);
+    }
+  }
+
+  void _updateCoverageState(GeoPoint point) {
+    final region = _activeRegion;
+    if (region == null) return;
+    final outside = !region.contains(point);
+    if (outside != _isOutsideCoverage) {
+      setState(() => _isOutsideCoverage = outside);
+    }
+  }
+
   @override
   void didUpdateWidget(covariant PropertyMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -167,6 +278,7 @@ class _PropertyMapViewState extends State<PropertyMapView> {
         ),
         duration: const Duration(milliseconds: 350),
       );
+      _updateCoverageState(widget.initialTarget);
     }
     _syncMarkers();
     _refreshCurrentLocationOverlay();
@@ -174,6 +286,7 @@ class _PropertyMapViewState extends State<PropertyMapView> {
 
   @override
   void dispose() {
+    _assetTimeoutTimer?.cancel();
     _controller?.onSymbolTapped.remove(_handleSymbolTap);
     super.dispose();
   }
@@ -410,56 +523,119 @@ class _PropertyMapViewState extends State<PropertyMapView> {
   @override
   Widget build(BuildContext context) {
     final screenPosition = _currentLocationScreenPosition;
+    final styleJson = _styleJson;
+    final region = _activeRegion;
     return Stack(
       children: [
-        MapLibreMap(
-          styleString: BasemapProviders.active.styleUri,
-          initialCameraPosition: CameraPosition(
-            target: LatLng(
-              widget.initialTarget.latitude,
-              widget.initialTarget.longitude,
+        if (styleJson != null && region != null)
+          MapLibreMap(
+            key: ValueKey('propnote-map-${region.id}'),
+            styleString: styleJson,
+            initialCameraPosition: CameraPosition(
+              target: LatLng(
+                widget.initialTarget.latitude,
+                widget.initialTarget.longitude,
+              ),
+              zoom: widget.initialZoom,
             ),
-            zoom: widget.initialZoom,
-          ),
-          compassEnabled: widget.showCompass && widget.interactive,
-          scrollGesturesEnabled: widget.interactive,
-          zoomGesturesEnabled: widget.interactive,
-          rotateGesturesEnabled: widget.interactive,
-          tiltGesturesEnabled: widget.interactive,
-          dragEnabled: widget.interactive,
-          doubleClickZoomEnabled: widget.interactive,
-          logoEnabled: false,
-          // Bắt buộc phải bật để controller.queryCameraPosition() (dùng bởi
-          // PropertyMapController.getCameraCenter) trả về giá trị thật thay
-          // vì null — trên iOS, native side (getCamera() trong
-          // MapLibreMapController.swift) chỉ đọc mapView.camera khi cờ này
-          // true, nếu không sẽ luôn trả nil bất kể camera đang ở đâu.
-          trackCameraPosition: true,
-          onMapCreated: (controller) {
-            _controller = controller;
-            controller.onSymbolTapped.add(_handleSymbolTap);
-            widget.onMapReady?.call(PropertyMapController._(controller));
-          },
-          onStyleLoadedCallback: _onStyleLoaded,
-          onCameraMove: (position) {
-            widget.onCameraMove?.call(
-              GeoPoint(
+            minMaxZoomPreference: MinMaxZoomPreference(
+              region.minZoom,
+              region.maxZoom,
+            ),
+            // Không khoá cứng camera tại mép coverage — người dùng pan tự do
+            // ra ngoài vùng có PMTiles, phần ngoài hiện nền xám qua layer
+            // `coverage-mask-fill` trong style (xem buildLocalMapStyle), báo
+            // "Bản đồ chưa hỗ trợ khu vực này." qua [_CoverageBanner] — toạ
+            // độ camera/marker KHÔNG bao giờ bị clamp.
+            cameraTargetBounds: CameraTargetBounds.unbounded,
+            compassEnabled: widget.showCompass && widget.interactive,
+            scrollGesturesEnabled: widget.interactive,
+            zoomGesturesEnabled: widget.interactive,
+            rotateGesturesEnabled: widget.interactive,
+            tiltGesturesEnabled: widget.interactive,
+            dragEnabled: widget.interactive,
+            doubleClickZoomEnabled: widget.interactive,
+            logoEnabled: false,
+            // Bắt buộc phải bật để controller.queryCameraPosition() (dùng bởi
+            // PropertyMapController.getCameraCenter) trả về giá trị thật thay
+            // vì null — trên iOS, native side (getCamera() trong
+            // MapLibreMapController.swift) chỉ đọc mapView.camera khi cờ này
+            // true, nếu không sẽ luôn trả nil bất kể camera đang ở đâu.
+            trackCameraPosition: true,
+            onMapCreated: (controller) {
+              _controller = controller;
+              controller.onSymbolTapped.add(_handleSymbolTap);
+              widget.onMapReady?.call(PropertyMapController._(controller));
+            },
+            onStyleLoadedCallback: _onStyleLoaded,
+            onCameraMove: (position) {
+              final point = GeoPoint(
                 latitude: position.target.latitude,
                 longitude: position.target.longitude,
+              );
+              widget.onCameraMove?.call(point);
+              _updateCoverageState(point);
+              if (_currentLocationTarget != null) {
+                _refreshCurrentLocationOverlay();
+              }
+            },
+          )
+        else if (_mapSetupFailed)
+          const ColoredBox(
+            color: AppColors.mapLand,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Không thể tải bản đồ. Vui lòng thử lại.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
               ),
-            );
-            if (_currentLocationTarget != null) {
-              _refreshCurrentLocationOverlay();
-            }
-          },
-        ),
+            ),
+          )
+        else
+          const ColoredBox(
+            color: AppColors.mapLand,
+            child: Center(child: CircularProgressIndicator()),
+          ),
         if (screenPosition != null)
           Positioned(
             left: screenPosition.dx - 32,
             top: screenPosition.dy - 32,
             child: const CurrentLocationMarker(),
           ),
+        if (widget.showCoverageBanner && _isOutsideCoverage)
+          const Positioned(
+            left: 16,
+            right: 16,
+            bottom: 78,
+            child: SafeArea(top: false, child: _CoverageBanner()),
+          ),
       ],
+    );
+  }
+}
+
+/// Banner cố định (không popup/toast, chỉ hiện/ẩn theo trạng thái coverage)
+/// báo camera đang xem 1 khu vực chưa có bản đồ local — toạ độ vẫn hợp lệ,
+/// vẫn cho chọn/lưu bình thường (xem [MapCoveragePolicy]).
+class _CoverageBanner extends StatelessWidget {
+  const _CoverageBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.navy.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Text(
+        'Bản đồ chưa hỗ trợ khu vực này.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontSize: 12.5),
+      ),
     );
   }
 }

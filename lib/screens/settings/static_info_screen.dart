@@ -34,7 +34,7 @@ Dữ liệu và quyền truy cập
 - Vị trí (GPS): dùng để đặt ghim và xác định toạ độ cho từng bất động sản khi bạn chọn "Vị trí hiện tại". Chỉ dùng khi bạn đang mở ứng dụng, không thu thập vị trí nền.
 - Camera / thư viện ảnh: dùng để chụp hoặc chọn ảnh, tài liệu đính kèm cho bất động sản.
 - Microphone / nhận dạng giọng nói: dùng để chuyển giọng nói thành văn bản khi bạn nhập tên hoặc ghi chú bằng giọng nói. Việc nhận dạng giọng nói do hệ điều hành (iOS/Android) xử lý.
-- Bản đồ: PropNote hiển thị bản đồ nền bằng dịch vụ bên ngoài (OpenFreeMap) — thiết bị của bạn tải hình ảnh bản đồ qua Internet khi bạn mở màn hình Bản đồ. Khi bạn dùng tính năng chỉ đường, PropNote có thể mở ứng dụng bản đồ khác (vd. Google Maps) trên thiết bị.
+- Bản đồ: PropNote sử dụng dữ liệu bản đồ được đóng gói cục bộ trong ứng dụng cho các khu vực được hỗ trợ (hiện tại: TP.HCM, Hà Nội) — bản đồ nền không yêu cầu gửi vị trí của bạn tới máy chủ bản đồ để hiển thị, và không tải dữ liệu bản đồ qua Internet. Ngoài các khu vực này, bản đồ hiển thị nền trống kèm thông báo "Bản đồ chưa hỗ trợ khu vực này" — toạ độ bất động sản của bạn vẫn được lưu và sử dụng bình thường dù ở bất kỳ đâu. Khi bạn dùng tính năng chỉ đường, PropNote mở ứng dụng bản đồ khác (vd. Google Maps) đã cài trên thiết bị — thao tác này cần Internet và do ứng dụng/dịch vụ bên ngoài đó xử lý.
 
 Sao lưu và khôi phục
 Bạn có thể chủ động tạo bản sao lưu (một tệp .zip chứa dữ liệu và media) và chia sẻ nó tới nơi bạn chọn (Files, email, AirDrop, ...), hoặc khôi phục từ một tệp sao lưu đã có. Đây là thao tác thủ công do bạn thực hiện — PropNote không tự động tải bản sao lưu lên bất kỳ máy chủ nào.
@@ -55,8 +55,6 @@ PropNote — Sổ tay bất động sản cá nhân
 PropNote được thiết kế cho môi giới bất động sản cá nhân và những người thường xuyên đi khảo sát nhà đất — giúp ghi nhớ vị trí, hình ảnh và thông tin của từng căn nhà một cách nhanh chóng, không cần thao tác phức tạp.
 
 Ứng dụng tập trung vào sự đơn giản và tốc độ, không phải một CRM và không quản lý khách hàng. Toàn bộ dữ liệu được lưu ngay trên thiết bị của bạn.
-
-Nền tảng: Flutter
 ''';
 
 const String kTermsOfUseText = '''

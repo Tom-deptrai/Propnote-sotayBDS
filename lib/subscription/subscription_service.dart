@@ -30,12 +30,20 @@ class SubscriptionService extends ChangeNotifier {
   SubscriptionState _state = const SubscriptionState.unknown();
   bool _initialized = false;
 
+  /// true khi đã tải xong (query hoàn tất) nhưng KHÔNG tìm thấy sản phẩm
+  /// trên store (vd. `propnote_pro_yearly` chưa được tạo trên App Store
+  /// Connect/Play Console) hoặc query lỗi — phân biệt với "đang tải"
+  /// (product == null && !productUnavailable) để paywall không hiện spinner
+  /// vô hạn khi thực ra không còn gì để chờ. Xem [PaywallScreen].
+  bool _productUnavailable = false;
+
   SubscriptionService({InAppPurchase? inAppPurchase, this._repository})
     : _iap = inAppPurchase ?? InAppPurchase.instance;
 
   SubscriptionState get state => _state;
   ProductDetails? get product => _product;
   bool get isPro => _state.isPro;
+  bool get productUnavailable => _productUnavailable && _product == null;
 
   /// Chỉ dùng trong test — set thẳng [state] mà không cần dựng fake
   /// InAppPurchasePlatform đầy đủ, cho các test UI chỉ cần biết entitlement
@@ -116,13 +124,25 @@ class SubscriptionService extends ChangeNotifier {
       }
       if (response.productDetails.isNotEmpty) {
         _product = response.productDetails.first;
+        _productUnavailable = false;
         _state = _state.copyWithPrice(_product?.price);
-        notifyListeners();
+      } else {
+        // Query đã hoàn tất nhưng không có sản phẩm nào — đây là kết quả
+        // CUỐI CÙNG, không phải "đang tải", nên phải báo cho UI biết để
+        // dừng hiện spinner (xem [productUnavailable]).
+        _productUnavailable = true;
       }
+      notifyListeners();
     } catch (error) {
       debugPrint('Không tải được thông tin gói Pro: $error');
+      _productUnavailable = true;
+      notifyListeners();
     }
   }
+
+  /// Thử tải lại thông tin sản phẩm — dùng cho nút "Thử lại" trên paywall
+  /// khi [productUnavailable] là true.
+  Future<void> retryLoadProduct() => _loadProduct();
 
   /// Bắt đầu luồng mua gói Pro. Kết quả (thành công/lỗi/pending) đến qua
   /// [state] sau khi purchaseStream cập nhật — gọi hàm này không trả về

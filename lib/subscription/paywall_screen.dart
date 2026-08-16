@@ -147,7 +147,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
                 child: Column(
                   children: [
-                    if (priceLabel == null)
+                    if (priceLabel == null && service.productUnavailable)
+                      _ProductLoadIssue(
+                        message:
+                            'Chưa thể tải thông tin gói Pro. Vui lòng thử '
+                            'lại sau.',
+                        onRetry: () => service.retryLoadProduct(),
+                      )
+                    else if (priceLabel == null &&
+                        state.tier == SubscriptionTier.error &&
+                        state.errorMessage != null)
+                      _ProductLoadIssue(
+                        message: state.errorMessage!,
+                        onRetry: () => service.retryLoadProduct(),
+                      )
+                    else if (priceLabel == null)
                       const SizedBox(
                         height: 28,
                         child: Center(
@@ -266,6 +280,31 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Trạng thái "unavailable"/"error" của giá gói Pro — thay cho spinner vô
+/// hạn khi query store đã hoàn tất nhưng không có kết quả (vd. product chưa
+/// tồn tại trên App Store Connect/Play Console) hoặc lỗi mạng/store.
+class _ProductLoadIssue extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ProductLoadIssue({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 8),
+        TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+      ],
     );
   }
 }

@@ -97,6 +97,17 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
+  # Bản đồ local (PMTiles) cho TP.HCM + Hà Nội — xem MapCoveragePolicy. Không
+  # dùng OpenFreeMap live/remote basemap. Nguồn: OpenStreetMap/Geofabrik
+  # (qua Planetiler + OpenMapTiles schema), fonts từ openmaptiles/fonts
+  # (SIL OFL 1.1) — xem RELEASE_PRIVACY_NOTES.md.
+  assets:
+    - assets/map/hcm_metro.pmtiles
+    - assets/map/hanoi_metro_v2.pmtiles
+    - assets/map/fonts/Noto Sans Regular/0-255.pbf
+    - assets/map/fonts/Noto Sans Regular/256-511.pbf
+    - assets/map/fonts/Noto Sans Regular/7680-7935.pbf
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
